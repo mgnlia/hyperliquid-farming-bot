@@ -17,10 +17,16 @@ jobs:
       - name: Install uv
         run: pip install uv
       - name: Install dependencies
-        run: uv pip install --system fastapi uvicorn httpx sse-starlette pydantic pydantic-settings ruff
+        run: uv pip install --system fastapi uvicorn httpx sse-starlette pydantic pydantic-settings ruff pytest pytest-asyncio anyio
       - name: Lint
         run: ruff check .
         working-directory: backend
+      - name: Test
+        run: pytest tests/ -v --tb=short
+        working-directory: backend
+        env:
+          SIMULATION_MODE: "true"
+          BOT_API_KEY: ""
 
   frontend:
     runs-on: ubuntu-latest
