@@ -2,11 +2,13 @@
 
 import asyncio
 import time
+from collections import deque
+from datetime import date
 
 from backend.config import settings
 from backend.risk import RiskManager
-from backend.strategies.perps import PerpsStrategy
 from backend.strategies.defi_farming import DeFiFarmingStrategy
+from backend.strategies.perps import PerpsStrategy
 from backend.strategies.point_farmer import PointFarmerStrategy
 
 
@@ -18,6 +20,7 @@ class FarmingAgent:
             max_position_pct=settings.MAX_POSITION_PCT,
             max_drawdown_pct=settings.MAX_DRAWDOWN_PCT,
             kelly_fraction=settings.KELLY_FRACTION,
+            daily_loss_cap_usd=settings.DAILY_LOSS_CAP_USD,
         )
         self.perps_strategy = PerpsStrategy()
         self.defi_strategy = DeFiFarmingStrategy()
@@ -28,9 +31,26 @@ class FarmingAgent:
         self.realized_pnl: float = 0.0
         self.status: str = "stopped"
         self.started_at: float | None = None
-        self.events: list[dict] = []
+
+        # Bounded event log — deque never causes iterator invalidation
+        self.events: deque[dict] = deque(maxlen=500)
+
         self._task: asyncio.Task | None = None
         self._event_callbacks: list = []
+
+        # Daily reset tracking
+        self._trade_count_today: int = 0
+        self._daily_loss_today: float = 0.0
+        self._current_day: date = date.today()
+
+    def _check_daily_reset(self):
+        """Reset daily counters at midnight."""
+        today = date.today()
+        if today != self._current_day:
+            self._current_day = today
+            self._trade_count_today = 0
+            self._daily_loss_today = 0.0
+            self.risk_manager.reset_daily()
 
     def add_event_callback(self, callback):
         self._event_callbacks.append(callback)
@@ -40,10 +60,9 @@ class FarmingAgent:
             self._event_callbacks.remove(callback)
 
     async def _emit_event(self, event: dict):
+        # Bounded deque — appending never invalidates existing SSE iterators
         self.events.append(event)
-        if len(self.events) > 500:
-            self.events = self.events[-250:]
-        for cb in self._event_callbacks:
+        for cb in list(self._event_callbacks):
             try:
                 await cb(event)
             except Exception:
@@ -59,17 +78,43 @@ class FarmingAgent:
 
         while self.status == "running":
             try:
+                self._check_daily_reset()
+
+                # Check trade count limit
+                if self._trade_count_today >= settings.MAX_TRADES_PER_DAY:
+                    await self._emit_event({
+                        "type": "daily_limit_reached",
+                        "trade_count": self._trade_count_today,
+                        "timestamp": time.time(),
+                    })
+                    await asyncio.sleep(settings.AGENT_LOOP_INTERVAL)
+                    continue
+
                 within_limits = self.risk_manager.update_drawdown(self.portfolio_value)
                 if not within_limits:
                     await self._emit_event({"type": "risk_halt", "drawdown": self.risk_manager.current_drawdown, "timestamp": time.time()})
                     self.status = "halted"
                     break
 
+                # Check daily loss cap
+                if self._daily_loss_today <= -settings.DAILY_LOSS_CAP_USD:
+                    await self._emit_event({
+                        "type": "daily_loss_cap_hit",
+                        "daily_loss": self._daily_loss_today,
+                        "timestamp": time.time(),
+                    })
+                    self.status = "halted"
+                    break
+
                 perp_events = self.perps_strategy.execute_signals(self.risk_manager.kelly_size, self.portfolio_value)
                 for event in perp_events:
+                    if event.get("type") in ("open", "close"):
+                        self._trade_count_today += 1
                     if event.get("type") == "close" and "pnl" in event:
                         self.realized_pnl += event["pnl"]
                         self.cash += event["pnl"]
+                        if event["pnl"] < 0:
+                            self._daily_loss_today += event["pnl"]
                     await self._emit_event(event)
 
                 defi_events = self.defi_strategy.execute(self.cash * 0.4)
@@ -91,6 +136,8 @@ class FarmingAgent:
                     "unrealized_pnl": round(unrealized, 2),
                     "total_points": round(self.point_farmer.get_total_points(), 2),
                     "airdrop_score": self.point_farmer.get_airdrop_score(),
+                    "trade_count_today": self._trade_count_today,
+                    "daily_loss_today": round(self._daily_loss_today, 2),
                     "timestamp": time.time(),
                 })
 
@@ -136,6 +183,8 @@ class FarmingAgent:
             "total_points": round(self.point_farmer.get_total_points(), 2),
             "airdrop_score": self.point_farmer.get_airdrop_score(),
             "risk_metrics": self.risk_manager.get_risk_metrics(),
+            "trade_count_today": self._trade_count_today,
+            "daily_loss_today": round(self._daily_loss_today, 2),
             "started_at": self.started_at,
         }
 
