@@ -90,6 +90,8 @@ export const api = {
   positions: () => get<{ perps: PerpPosition[]; defi: DefiPosition[] }>("/api/positions"),
   points: () => get<PointsResponse>("/api/points"),
   trades: () => get<TradesResponse>("/api/trades"),
-  start: () => post<{ status: string }>("/api/agent/start"),
-  stop: () => post<{ status: string }>("/api/agent/stop"),
+  start: (..._args: unknown[]) => post<{ status: string }>("/api/agent/start"),
+  stop: (..._args: unknown[]) => post<{ status: string }>("/api/agent/stop"),
+  streamUrl: (..._args: unknown[]) => `${BASE}/api/stream`,
+  resetRisk: (..._args: unknown[]) => post<{ status: string }>("/api/risk/reset"),
 };

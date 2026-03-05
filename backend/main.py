@@ -67,6 +67,12 @@ async def stop_agent() -> dict:
     return await agent.stop()
 
 
+@app.post("/api/risk/reset")
+def reset_risk() -> dict:
+    # compatibility endpoint for alternate dashboard clients
+    return {"status": "not_applicable_in_simulation_mode"}
+
+
 async def event_generator():
     last_index = 0
     while True:
