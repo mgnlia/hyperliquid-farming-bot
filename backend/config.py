@@ -17,6 +17,12 @@ class Settings(BaseSettings):
     INITIAL_PORTFOLIO_VALUE: float = 10000.0
     HOST: str = "0.0.0.0"
     PORT: int = 8000
+    # Auth — Bearer token for non-health endpoints. Empty = auth disabled (dev/CI).
+    BOT_API_KEY: str = ""
+    # Risk: daily loss cap in USD
+    DAILY_LOSS_CAP_USD: float = 500.0
+    # Max trades per day before auto-reset at midnight
+    MAX_TRADES_PER_DAY: int = 50
 
     model_config = {"env_prefix": "", "env_file": ".env", "extra": "ignore"}
 
