@@ -1,58 +1,72 @@
-# Hyperliquid HyperEVM Airdrop Farming Bot — $HYPE Season 3
+# Hyperliquid HyperEVM Airdrop Farming Bot
 
-Automated farming bot for Hyperliquid Season 3 airdrop. Trades perps + farms DeFi protocols on HyperEVM to maximize $HYPE allocation.
+Automated airdrop farming bot for Hyperliquid's HyperEVM ecosystem — targeting $HYPE Season 3.
+
+## Features
+
+- **3 Strategies**: Perpetual futures trading (HIP-3), DeFi farming (KittenSwap, HypurrFi, HyperLend), Cross-protocol point farming (Felix, Mizu, Drip, Hyperbeat)
+- **Risk Management**: Kelly criterion sizing, max drawdown limits, position size caps
+- **Real-time Dashboard**: Next.js 14 + Tailwind CSS with SSE live event streaming
+- **Simulation Mode**: Runs fully simulated by default — no wallet or API keys required
 
 ## Architecture
 
-- **Backend**: FastAPI (Python/uv) — strategies, risk management, SQLite persistence
-- **Frontend**: Next.js 14 + Tailwind — live dashboard with SSE updates
+```
+backend/           FastAPI + Python 3.11
+├── config.py      Pydantic settings (env vars)
+├── risk.py        Risk management (Kelly sizing, drawdown)
+├── agent.py       Main async loop orchestrating strategies
+├── main.py        FastAPI endpoints + SSE
+└── strategies/
+    ├── perps.py           Perpetual futures trading
+    ├── defi_farming.py    LP, staking, lending
+    └── point_farmer.py    Cross-protocol point accumulation
 
-## Strategies
-
-1. **Perp Trading** — Equity perps via Hyperliquid SDK (volume farming for trading score)
-2. **HyperEVM DeFi** — KittenSwap LP, HypurrFi staking, HyperLend lending
-3. **Cross-Protocol** — Felix, Mizu, Drip, Hyperbeat point farming
-4. **Points Tracker** — Estimates airdrop tier & HYPE allocation
+frontend/          Next.js 14 + Tailwind
+└── src/app/
+    ├── layout.tsx
+    └── page.tsx   Dashboard with positions, points, P&L, events
+```
 
 ## Quick Start
 
+### Backend
 ```bash
-# Backend
 cd backend
-uv sync
-SIMULATION_MODE=true uv run uvicorn app.main:app --reload
-
-# Frontend
-cd frontend
-npm install
-NEXT_PUBLIC_API_URL=http://localhost:8000 npm run dev
+uv pip install fastapi uvicorn httpx sse-starlette pydantic pydantic-settings
+cd .. && uvicorn backend.main:app --reload
 ```
 
-## Environment Variables
+### Frontend
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
+### Environment Variables
 | Variable | Default | Description |
-|----------|---------|-------------|
-| SIMULATION_MODE | true | Run without real wallet |
-| PRIVATE_KEY | — | Wallet private key (live mode) |
-| WALLET_ADDRESS | — | Wallet address |
-| BOT_API_KEY | changeme | API auth key for bot control |
-| DAILY_LOSS_LIMIT_USD | 100 | Hard daily loss limit |
-| PERP_TRADE_SIZE_USD | 50 | Per-trade size |
+|---|---|---|
+| `SIMULATION_MODE` | `true` | Run in simulation mode |
+| `HYPERLIQUID_PRIVATE_KEY` | `` | Private key for live trading |
+| `INITIAL_PORTFOLIO_VALUE` | `10000` | Starting portfolio value |
+| `MAX_POSITION_PCT` | `0.25` | Max single position size |
+| `MAX_DRAWDOWN_PCT` | `0.15` | Max drawdown before halt |
 
 ## API Endpoints
 
-- `GET /health` — Health check
-- `GET /api/status` — Bot status + stats
-- `GET /api/positions` — Trade history
-- `GET /api/points` — Airdrop score estimate
-- `GET /api/farm-events` — DeFi farming history
-- `GET /api/stream` — SSE real-time updates
-- `POST /api/bot/start` — Start bot (requires BOT_API_KEY)
-- `POST /api/bot/stop` — Stop bot (requires BOT_API_KEY)
+| Method | Path | Description |
+|---|---|---|
+| GET | `/health` | Health check |
+| GET | `/api/status` | Agent status and portfolio |
+| GET | `/api/positions` | Open positions (perps + DeFi) |
+| GET | `/api/points` | Points breakdown per protocol |
+| GET | `/api/trades` | Recent trade history |
+| POST | `/api/agent/start` | Start the agent |
+| POST | `/api/agent/stop` | Stop the agent |
+| POST | `/api/agent/resume` | Resume after halt |
+| GET | `/api/stream` | SSE live event stream |
 
-## Season 3 Context
+## License
 
-Hyperliquid has 38.8% of $HYPE supply still reserved for future distributions. Season 1 distributed ~31M HYPE to ~94K addresses. This bot maximizes eligibility by:
-- Generating consistent trading volume across perp markets
-- Interacting with multiple HyperEVM DeFi protocols
-- Maintaining daily activity streaks
+MIT

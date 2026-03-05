@@ -1,10 +1,22 @@
-.env
-.env.local
+# Python
 __pycache__/
-*.pyc
-.venv/
-data/
-.next/
-node_modules/
-dist/
+*.py[cod]
 *.egg-info/
+dist/
+.venv/
+.env
+.ruff_cache/
+
+# Node
+node_modules/
+.next/
+out/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
