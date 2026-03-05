@@ -1,78 +1,58 @@
-# Hyperliquid Farming Bot 🚀
+# Hyperliquid HyperEVM Airdrop Farming Bot — $HYPE Season 3
 
-Automated $HYPE Season 3 airdrop farming — perps trading + HyperEVM DeFi.
+Automated farming bot for Hyperliquid Season 3 airdrop. Trades perps + farms DeFi protocols on HyperEVM to maximize $HYPE allocation.
 
 ## Architecture
 
-```
-src/
-├── main.py                      # FastAPI server (8 REST endpoints + SSE)
-├── config.py                    # pydantic-settings (env-driven)
-├── database.py                  # Async SQLite (aiosqlite)
-├── bot.py                       # Orchestrator — runs all strategies
-└── strategies/
-    ├── perps_trader.py          # Momentum perps on BTC/ETH/SOL
-    ├── hyper_evm_farmer.py      # KittenSwap LP + HyperLend + HypurrFi
-    └── points_tracker.py        # Felix/Mizu/Drip/Hyperbeat point tracking
-
-frontend/
-├── app/page.tsx                 # Dashboard (P&L chart, points, positions, trades)
-├── components/
-│   ├── StatusCard.tsx
-│   ├── TradeTable.tsx
-│   └── PointsPanel.tsx
-└── lib/api.ts                   # Typed API client
-```
+- **Backend**: FastAPI (Python/uv) — strategies, risk management, SQLite persistence
+- **Frontend**: Next.js 14 + Tailwind — live dashboard with SSE updates
 
 ## Strategies
 
-| Strategy | Description | Points Source |
-|---|---|---|
-| Perps Momentum | Long/short BTC/ETH/SOL on 1h momentum | Felix: 10 pts/trade |
-| KittenSwap LP | USDC/HYPE LP position | 8 pts/day |
-| HyperLend | USDC lending | 5 pts/day |
-| HypurrFi Stake | HYPE staking | 6 pts/day |
-| Drip | Daily active bonus | 2 pts/day |
-| Hyperbeat | LP actions | 8 pts/LP |
+1. **Perp Trading** — Equity perps via Hyperliquid SDK (volume farming for trading score)
+2. **HyperEVM DeFi** — KittenSwap LP, HypurrFi staking, HyperLend lending
+3. **Cross-Protocol** — Felix, Mizu, Drip, Hyperbeat point farming
+4. **Points Tracker** — Estimates airdrop tier & HYPE allocation
 
-## API Endpoints
-
-| Method | Path | Description |
-|---|---|---|
-| GET | /health | Health check |
-| GET | /api/status | Full bot status + portfolio |
-| GET | /api/portfolio | Positions + P&L |
-| GET | /api/trades | Recent trades (default 50) |
-| GET | /api/points | Points by protocol |
-| GET | /api/strategies | Per-strategy status |
-| POST | /api/bot/start | Start bot |
-| POST | /api/bot/stop | Stop bot |
-| GET | /api/stream | SSE real-time events |
-
-## Running locally
+## Quick Start
 
 ```bash
 # Backend
-pip install uv
-uv venv && uv pip install -e ".[dev]"
-SIMULATION_MODE=true uvicorn src.main:app --reload
+cd backend
+uv sync
+SIMULATION_MODE=true uv run uvicorn app.main:app --reload
 
 # Frontend
-cd frontend && npm install && npm run dev
+cd frontend
+npm install
+NEXT_PUBLIC_API_URL=http://localhost:8000 npm run dev
 ```
 
 ## Environment Variables
 
 | Variable | Default | Description |
-|---|---|---|
-| SIMULATION_MODE | true | Disable live trading |
-| HL_WALLET_ADDRESS | "" | Hyperliquid wallet |
-| HL_PRIVATE_KEY | "" | Signing key (live mode) |
-| MAX_POSITION_USDC | 100 | Max position size |
-| DAILY_PERP_TRADES | 5 | Max trades per day |
-| NEXT_PUBLIC_API_URL | http://localhost:8000 | Backend URL |
+|----------|---------|-------------|
+| SIMULATION_MODE | true | Run without real wallet |
+| PRIVATE_KEY | — | Wallet private key (live mode) |
+| WALLET_ADDRESS | — | Wallet address |
+| BOT_API_KEY | changeme | API auth key for bot control |
+| DAILY_LOSS_LIMIT_USD | 100 | Hard daily loss limit |
+| PERP_TRADE_SIZE_USD | 50 | Per-trade size |
 
-## Deployment
+## API Endpoints
 
-- **Backend**: Railway (Dockerfile)
-- **Frontend**: Vercel (Next.js)
+- `GET /health` — Health check
+- `GET /api/status` — Bot status + stats
+- `GET /api/positions` — Trade history
+- `GET /api/points` — Airdrop score estimate
+- `GET /api/farm-events` — DeFi farming history
+- `GET /api/stream` — SSE real-time updates
+- `POST /api/bot/start` — Start bot (requires BOT_API_KEY)
+- `POST /api/bot/stop` — Stop bot (requires BOT_API_KEY)
+
+## Season 3 Context
+
+Hyperliquid has 38.8% of $HYPE supply still reserved for future distributions. Season 1 distributed ~31M HYPE to ~94K addresses. This bot maximizes eligibility by:
+- Generating consistent trading volume across perp markets
+- Interacting with multiple HyperEVM DeFi protocols
+- Maintaining daily activity streaks

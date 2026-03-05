@@ -1,15 +1,8 @@
-FROM python:3.11-slim AS builder
+FROM python:3.11-slim
 WORKDIR /app
 RUN pip install uv
 COPY pyproject.toml .
-COPY src/ ./src/
-RUN uv pip install --system .
-
-FROM python:3.11-slim
-WORKDIR /app
-COPY --from=builder /usr/local/lib/python3.11 /usr/local/lib/python3.11
-COPY --from=builder /usr/local/bin /usr/local/bin
-COPY src/ ./src/
-RUN mkdir -p data
+RUN uv pip install --system -r pyproject.toml
+COPY backend/ ./backend/
 EXPOSE 8000
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
