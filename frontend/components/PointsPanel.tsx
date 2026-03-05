@@ -1,65 +1,37 @@
-'use client'
-import { usePoints } from '@/lib/hooks'
+"use client";
+import type { ProtocolPoints } from "@/lib/api";
 
-const COLORS: Record<string, string> = {
-  felix: '#8b5cf6',
-  mizu: '#3b82f6',
-  drip: '#00d4a0',
-  hyperbeat: '#f59e0b',
-  hyperliquid_native: '#ef4444',
+interface PointsPanelProps {
+  protocols: ProtocolPoints[];
+  grandTotal: number;
 }
 
-export default function PointsPanel() {
-  const data = usePoints()
-
-  if (!data) return (
-    <div className="card">
-      <h2 className="text-lg font-bold mb-4">⭐ Protocol Points</h2>
-      <div className="text-[#6b7280] text-sm">Loading...</div>
-    </div>
-  )
-
-  const protocols = data.protocols || {}
-  const total = data.total_points || 0
-
+export function PointsPanel({ protocols, grandTotal }: PointsPanelProps) {
   return (
-    <div className="card flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold">⭐ Protocol Points</h2>
-        <span className="text-[#00d4a0] font-bold">{total.toFixed(1)} pts</span>
+    <div>
+      <div className="flex justify-between items-center mb-3">
+        <span className="text-gray-400 text-sm">Grand Total</span>
+        <span className="text-yellow-400 font-bold text-lg">{grandTotal.toLocaleString()} pts</span>
       </div>
-
-      <div className="flex flex-col gap-3">
-        {Object.entries(protocols).map(([key, p]: [string, any]) => {
-          const pct = total > 0 ? (p.points / total) * 100 : 0
-          const color = COLORS[key] || '#6b7280'
+      <div className="space-y-2">
+        {protocols.map((p) => {
+          const pct = grandTotal > 0 ? (p.total_points / grandTotal) * 100 : 0;
           return (
-            <div key={key}>
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium">{p.name}</span>
-                  <span className="text-xs text-[#6b7280] px-1.5 py-0.5 rounded bg-[#1f2937]">{p.category}</span>
-                </div>
-                <div className="text-right">
-                  <span className="text-sm font-bold" style={{ color }}>{p.points.toFixed(2)}</span>
-                  <span className="text-xs text-[#6b7280] ml-1">×{p.multiplier}</span>
-                </div>
+            <div key={p.protocol}>
+              <div className="flex justify-between text-sm mb-0.5">
+                <span className="text-gray-300">{p.protocol}</span>
+                <span className="text-yellow-300">{p.total_points.toFixed(1)} pts</span>
               </div>
-              <div className="w-full bg-[#1f2937] rounded-full h-1.5">
+              <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden">
                 <div
-                  className="h-1.5 rounded-full transition-all duration-500"
-                  style={{ width: `${pct}%`, backgroundColor: color }}
+                  className="h-full bg-gradient-to-r from-yellow-500 to-orange-400 rounded-full"
+                  style={{ width: `${pct}%` }}
                 />
               </div>
             </div>
-          )
+          );
         })}
       </div>
-
-      <div className="border-t border-[#1f2937] pt-3 flex justify-between text-xs text-[#6b7280]">
-        <span>Est. Rank: #{data.estimated_rank?.toLocaleString()}</span>
-        <span>{Object.keys(protocols).length} protocols active</span>
-      </div>
     </div>
-  )
+  );
 }

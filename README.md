@@ -1,116 +1,78 @@
-# ⚡ Hyperliquid Farming Bot — $HYPE Season 3
+# Hyperliquid Farming Bot 🚀
 
-Automated airdrop farming for Hyperliquid: perps trading, DeFi yield, and cross-protocol point accumulation.
+Automated $HYPE Season 3 airdrop farming — perps trading + HyperEVM DeFi.
 
 ## Architecture
 
 ```
-backend (FastAPI + uv)
-├── src/
-│   ├── config.py              # Pydantic-settings, all env vars
-│   ├── database.py            # SQLite with hash-chained audit log
-│   ├── risk.py                # Position limits, drawdown protection
-│   ├── main.py                # FastAPI: /api/status /api/stream (SSE) etc.
-│   ├── bot/orchestrator.py    # Asyncio task manager
-│   └── strategies/
-│       ├── perps.py           # Perps trading via Hyperliquid SDK
-│       ├── defi_farming.py    # KittenSwap LP, HypurrFi, HyperLend
-│       └── point_farmer.py    # Felix, Mizu, Drip, Hyperbeat points
+src/
+├── main.py                      # FastAPI server (8 REST endpoints + SSE)
+├── config.py                    # pydantic-settings (env-driven)
+├── database.py                  # Async SQLite (aiosqlite)
+├── bot.py                       # Orchestrator — runs all strategies
+└── strategies/
+    ├── perps_trader.py          # Momentum perps on BTC/ETH/SOL
+    ├── hyper_evm_farmer.py      # KittenSwap LP + HyperLend + HypurrFi
+    └── points_tracker.py        # Felix/Mizu/Drip/Hyperbeat point tracking
 
-frontend (Next.js 14 + Tailwind)
-└── app/
-    ├── page.tsx               # Main dashboard
-    └── components/
-        ├── StatCard.tsx
-        ├── AirdropScore.tsx   # Score meter with checklist
-        ├── PointsPanel.tsx    # Per-protocol points bars
-        ├── PositionsTable.tsx # Risk + positions
-        ├── PnLChart.tsx       # Cumulative volume chart
-        ├── TradeHistory.tsx   # Trade log table
-        └── BotControls.tsx    # Start/Stop/Reset
+frontend/
+├── app/page.tsx                 # Dashboard (P&L chart, points, positions, trades)
+├── components/
+│   ├── StatusCard.tsx
+│   ├── TradeTable.tsx
+│   └── PointsPanel.tsx
+└── lib/api.ts                   # Typed API client
 ```
 
-## Quick Start
+## Strategies
 
-```bash
-# Backend
-cp .env.example .env
-# Edit .env — set PRIVATE_KEY, WALLET_ADDRESS, SIMULATION_MODE=true
-
-uv pip install -e ".[dev]"
-python -m src.main
-# → http://localhost:8000
-
-# Frontend
-cd frontend
-npm install
-NEXT_PUBLIC_API_URL=http://localhost:8000 npm run dev
-# → http://localhost:3000
-```
+| Strategy | Description | Points Source |
+|---|---|---|
+| Perps Momentum | Long/short BTC/ETH/SOL on 1h momentum | Felix: 10 pts/trade |
+| KittenSwap LP | USDC/HYPE LP position | 8 pts/day |
+| HyperLend | USDC lending | 5 pts/day |
+| HypurrFi Stake | HYPE staking | 6 pts/day |
+| Drip | Daily active bonus | 2 pts/day |
+| Hyperbeat | LP actions | 8 pts/LP |
 
 ## API Endpoints
 
 | Method | Path | Description |
-|--------|------|-------------|
-| GET | `/health` | Health check |
-| GET | `/api/status` | Full bot status |
-| GET | `/api/strategies` | Per-strategy status |
-| GET | `/api/positions` | Risk + positions |
-| GET | `/api/points` | Protocol points breakdown |
-| GET | `/api/trades?limit=50` | Trade history |
-| GET | `/api/airdrop` | Airdrop readiness score |
-| GET | `/api/stream` | SSE real-time feed |
-| POST | `/api/bot/start` | Start bot |
-| POST | `/api/bot/stop` | Stop bot |
-| POST | `/api/risk/reset` | Clear risk block |
+|---|---|---|
+| GET | /health | Health check |
+| GET | /api/status | Full bot status + portfolio |
+| GET | /api/portfolio | Positions + P&L |
+| GET | /api/trades | Recent trades (default 50) |
+| GET | /api/points | Points by protocol |
+| GET | /api/strategies | Per-strategy status |
+| POST | /api/bot/start | Start bot |
+| POST | /api/bot/stop | Stop bot |
+| GET | /api/stream | SSE real-time events |
 
-## Strategies
-
-### 1. Perps Trading (`ENABLE_PERPS=true`)
-- Trades BTC, ETH, SOL, ARB, AVAX perpetuals
-- Generates volume for native Hyperliquid points
-- Configurable trade size and interval
-
-### 2. DeFi Farming (`ENABLE_DEFI=true`)
-- **KittenSwap** — LP positions (~35% APY)
-- **HypurrFi** — HYPE staking (~18% APY)
-- **HyperLend** — Lending supply (~8% APY)
-
-### 3. Point Farming (`ENABLE_POINTS=true`)
-- **Felix** — CDP protocol (2× multiplier)
-- **Mizu** — Liquid staking (1.8× multiplier)
-- **Drip** — Yield aggregator (1.5× multiplier)
-- **Hyperbeat** — Structured vaults (1.6× multiplier)
-- **Hyperliquid Native** — DEX trading (3× multiplier)
-
-## Risk Management
-
-- Per-asset position limit (`MAX_POSITION_USD`, default $500)
-- Total exposure limit (`MAX_TOTAL_EXPOSURE_USD`, default $2,000)
-- Max drawdown circuit breaker (`MAX_DRAWDOWN_PCT`, default 10%)
-- Max leverage cap (`MAX_LEVERAGE`, default 3×)
-- Auto-block on limit breach; manual reset via API
-
-## Airdrop Score
-
-The dashboard computes a 0–100 readiness score:
-- ✓ $1,000+ trading volume
-- ✓ 2+ active DeFi positions
-- ✓ 100+ protocol points
-- ✓ 3+ protocols active
-- ✓ 50+ total trades
-
-## Deployment (Railway)
+## Running locally
 
 ```bash
-# Set environment variables in Railway dashboard:
-SIMULATION_MODE=false
-PRIVATE_KEY=<your-key>
-WALLET_ADDRESS=<your-address>
+# Backend
+pip install uv
+uv venv && uv pip install -e ".[dev]"
+SIMULATION_MODE=true uvicorn src.main:app --reload
 
-railway up
+# Frontend
+cd frontend && npm install && npm run dev
 ```
 
-## ⚠ Disclaimer
+## Environment Variables
 
-This software is for educational purposes. Trading involves significant risk. Always start with `SIMULATION_MODE=true`. Never commit private keys. DYOR.
+| Variable | Default | Description |
+|---|---|---|
+| SIMULATION_MODE | true | Disable live trading |
+| HL_WALLET_ADDRESS | "" | Hyperliquid wallet |
+| HL_PRIVATE_KEY | "" | Signing key (live mode) |
+| MAX_POSITION_USDC | 100 | Max position size |
+| DAILY_PERP_TRADES | 5 | Max trades per day |
+| NEXT_PUBLIC_API_URL | http://localhost:8000 | Backend URL |
+
+## Deployment
+
+- **Backend**: Railway (Dockerfile)
+- **Frontend**: Vercel (Next.js)

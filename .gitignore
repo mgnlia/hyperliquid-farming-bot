@@ -1,37 +1,10 @@
-# Python
-__pycache__/
-*.py[cod]
-*.pyo
-*.pyd
-.Python
-*.egg-info/
-dist/
-build/
-.venv/
-venv/
-.uv/
-
-# Environment
 .env
-*.env.local
-*.env.production
-
-# Data
+.env.local
+__pycache__/
+*.pyc
+.venv/
 data/
-*.db
-
-# Node
-frontend/node_modules/
-frontend/.next/
-frontend/out/
-frontend/.env.local
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# OS
-.DS_Store
-Thumbs.db
+.next/
+node_modules/
+dist/
+*.egg-info/
