@@ -1,37 +1,48 @@
 "use client";
-import type { ProtocolPoints } from "@/lib/api";
 
-interface PointsPanelProps {
-  protocols: ProtocolPoints[];
-  grandTotal: number;
+import type { PointsProtocol } from "@/lib/api";
+
+interface Props {
+  total: number;
+  score: number;
+  protocols: PointsProtocol[];
 }
 
-export function PointsPanel({ protocols, grandTotal }: PointsPanelProps) {
+export function PointsPanel({ total, score, protocols }: Props) {
   return (
-    <div>
-      <div className="flex justify-between items-center mb-3">
-        <span className="text-gray-400 text-sm">Grand Total</span>
-        <span className="text-yellow-400 font-bold text-lg">{grandTotal.toLocaleString()} pts</span>
+    <section className="rounded-xl border border-slate-800 bg-slate-950/70 p-4">
+      <div className="mb-4 flex items-end justify-between">
+        <div>
+          <h3 className="text-sm font-semibold text-slate-200">Airdrop Points</h3>
+          <p className="text-2xl font-semibold text-yellow-300">{total.toFixed(2)} pts</p>
+        </div>
+        <div className="text-right">
+          <p className="text-xs uppercase tracking-wider text-slate-400">Score Meter</p>
+          <p className="text-lg font-semibold text-fuchsia-300">{score.toFixed(2)} / 100</p>
+        </div>
       </div>
+
       <div className="space-y-2">
         {protocols.map((p) => {
-          const pct = grandTotal > 0 ? (p.total_points / grandTotal) * 100 : 0;
+          const width = total > 0 ? (p.points / total) * 100 : 0;
           return (
             <div key={p.protocol}>
-              <div className="flex justify-between text-sm mb-0.5">
-                <span className="text-gray-300">{p.protocol}</span>
-                <span className="text-yellow-300">{p.total_points.toFixed(1)} pts</span>
+              <div className="mb-1 flex justify-between text-xs text-slate-300">
+                <span>
+                  {p.protocol} · x{p.multiplier.toFixed(2)}
+                </span>
+                <span>{p.points.toFixed(2)} pts</span>
               </div>
-              <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden">
+              <div className="h-2 w-full overflow-hidden rounded-full bg-slate-800">
                 <div
-                  className="h-full bg-gradient-to-r from-yellow-500 to-orange-400 rounded-full"
-                  style={{ width: `${pct}%` }}
+                  className="h-full rounded-full bg-gradient-to-r from-fuchsia-500 via-purple-400 to-cyan-400"
+                  style={{ width: `${Math.min(100, width)}%` }}
                 />
               </div>
             </div>
           );
         })}
       </div>
-    </div>
+    </section>
   );
 }

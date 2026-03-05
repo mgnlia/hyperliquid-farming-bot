@@ -1,1 +1,1 @@
-# Strategies module
+"""Strategy package for simulated farming bot."""

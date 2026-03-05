@@ -1,192 +1,178 @@
-"""Main agent loop: orchestrates strategies and emits events."""
+"""Main async agent loop orchestrating strategy execution."""
+
+from __future__ import annotations
 
 import asyncio
+import random
 import time
-from collections import deque
-from datetime import date
+from dataclasses import dataclass, field
 
 from backend.config import settings
 from backend.risk import RiskManager
-from backend.strategies.defi_farming import DeFiFarmingStrategy
+from backend.strategies.defi_farming import DefiFarmingStrategy
 from backend.strategies.perps import PerpsStrategy
 from backend.strategies.point_farmer import PointFarmerStrategy
 
 
-class FarmingAgent:
-    """Main farming agent that orchestrates all strategies."""
+@dataclass
+class AgentState:
+    status: str = "stopped"
+    started_at: float | None = None
+    last_tick: float | None = None
+    events: list[dict] = field(default_factory=list)
+    trades: list[dict] = field(default_factory=list)
 
+
+class HyperliquidFarmingAgent:
     def __init__(self):
-        self.risk_manager = RiskManager(
-            max_position_pct=settings.MAX_POSITION_PCT,
-            max_drawdown_pct=settings.MAX_DRAWDOWN_PCT,
-            kelly_fraction=settings.KELLY_FRACTION,
-            daily_loss_cap_usd=settings.DAILY_LOSS_CAP_USD,
-        )
-        self.perps_strategy = PerpsStrategy()
-        self.defi_strategy = DeFiFarmingStrategy()
-        self.point_farmer = PointFarmerStrategy()
+        self.simulation_mode = settings.SIMULATION_MODE
+        self.loop_interval = settings.AGENT_LOOP_INTERVAL
 
-        self.portfolio_value: float = settings.INITIAL_PORTFOLIO_VALUE
-        self.cash: float = settings.INITIAL_PORTFOLIO_VALUE
-        self.realized_pnl: float = 0.0
-        self.status: str = "stopped"
-        self.started_at: float | None = None
+        self.perps = PerpsStrategy()
+        self.defi = DefiFarmingStrategy()
+        self.points = PointFarmerStrategy()
+        self.risk = RiskManager(settings.MAX_POSITION_PCT, settings.MAX_DRAWDOWN_PCT, settings.KELLY_FRACTION)
 
-        # Bounded event log — deque never causes iterator invalidation
-        self.events: deque[dict] = deque(maxlen=500)
+        self.state = AgentState()
+        self.cash = settings.INITIAL_PORTFOLIO_VALUE
 
         self._task: asyncio.Task | None = None
-        self._event_callbacks: list = []
+        self._stop_event = asyncio.Event()
 
-        # Daily reset tracking
-        self._trade_count_today: int = 0
-        self._daily_loss_today: float = 0.0
-        self._current_day: date = date.today()
+    def _emit(self, event: dict) -> None:
+        self.state.events.append(event)
+        self.state.events = self.state.events[-300:]
 
-    def _check_daily_reset(self):
-        """Reset daily counters at midnight."""
-        today = date.today()
-        if today != self._current_day:
-            self._current_day = today
-            self._trade_count_today = 0
-            self._daily_loss_today = 0.0
-            self.risk_manager.reset_daily()
+    def _record_trade(self, trade: dict) -> None:
+        self.state.trades.append(trade)
+        self.state.trades = self.state.trades[-300:]
 
-    def add_event_callback(self, callback):
-        self._event_callbacks.append(callback)
+    def _portfolio_value(self) -> float:
+        return self.cash + self.perps.unrealized_pnl() + self.defi.total_earned()
 
-    def remove_event_callback(self, callback):
-        if callback in self._event_callbacks:
-            self._event_callbacks.remove(callback)
+    def _max_position_notional(self) -> float:
+        value = max(1.0, self._portfolio_value())
+        return value * settings.MAX_POSITION_PCT
 
-    async def _emit_event(self, event: dict):
-        # Bounded deque — appending never invalidates existing SSE iterators
-        self.events.append(event)
-        for cb in list(self._event_callbacks):
-            try:
-                await cb(event)
-            except Exception:
-                pass
+    async def _tick(self) -> None:
+        started = self.state.last_tick or time.time()
+        now = time.time()
+        dt = max(1.0, now - started)
+        self.state.last_tick = now
 
-    async def _run_loop(self):
-        """Main agent loop."""
-        self.status = "running"
-        self.started_at = time.time()
-        self.risk_manager.peak_value = self.portfolio_value
+        self.perps.mark_to_market()
+        yield_delta = self.defi.accrue_yield(dt)
 
-        await self._emit_event({"type": "agent_started", "portfolio_value": self.portfolio_value, "timestamp": time.time()})
+        if random.random() < 0.55:
+            open_trade = self.perps.maybe_open_position(self._max_position_notional())
+            if open_trade:
+                self._record_trade(open_trade)
+                self._emit(open_trade)
 
-        while self.status == "running":
-            try:
-                self._check_daily_reset()
+        close_trade = self.perps.maybe_close_position()
+        if close_trade:
+            self.cash += close_trade.get("pnl", 0.0)
+            self._record_trade(close_trade)
+            self._emit(close_trade)
 
-                # Check trade count limit
-                if self._trade_count_today >= settings.MAX_TRADES_PER_DAY:
-                    await self._emit_event({
-                        "type": "daily_limit_reached",
-                        "trade_count": self._trade_count_today,
-                        "timestamp": time.time(),
-                    })
-                    await asyncio.sleep(settings.AGENT_LOOP_INTERVAL)
-                    continue
+        rebalance_event = self.defi.rebalance()
+        if rebalance_event:
+            self._emit(rebalance_event)
 
-                within_limits = self.risk_manager.update_drawdown(self.portfolio_value)
-                if not within_limits:
-                    await self._emit_event({"type": "risk_halt", "drawdown": self.risk_manager.current_drawdown, "timestamp": time.time()})
-                    self.status = "halted"
-                    break
+        points_events = self.points.farm_cycle()
+        for event in points_events:
+            self._emit(event)
 
-                # Check daily loss cap
-                if self._daily_loss_today <= -settings.DAILY_LOSS_CAP_USD:
-                    await self._emit_event({
-                        "type": "daily_loss_cap_hit",
-                        "daily_loss": self._daily_loss_today,
-                        "timestamp": time.time(),
-                    })
-                    self.status = "halted"
-                    break
+        value = self._portfolio_value()
+        healthy = self.risk.update_drawdown(value)
 
-                perp_events = self.perps_strategy.execute_signals(self.risk_manager.kelly_size, self.portfolio_value)
-                for event in perp_events:
-                    if event.get("type") in ("open", "close"):
-                        self._trade_count_today += 1
-                    if event.get("type") == "close" and "pnl" in event:
-                        self.realized_pnl += event["pnl"]
-                        self.cash += event["pnl"]
-                        if event["pnl"] < 0:
-                            self._daily_loss_today += event["pnl"]
-                    await self._emit_event(event)
+        status_event = {
+            "type": "status",
+            "timestamp": now,
+            "portfolio_value": round(value, 4),
+            "realized_pnl": round(self.perps.realized_pnl, 4),
+            "unrealized_pnl": round(self.perps.unrealized_pnl(), 4),
+            "defi_earned": round(self.defi.total_earned(), 4),
+            "yield_delta": round(yield_delta, 6),
+            "total_points": round(self.points.total_points(), 4),
+            "airdrop_score": round(self.points.airdrop_score(), 4),
+            "risk": self.risk.metrics(),
+        }
+        self._emit(status_event)
 
-                defi_events = self.defi_strategy.execute(self.cash * 0.4)
-                for event in defi_events:
-                    await self._emit_event(event)
+        if not healthy:
+            self.state.status = "halted"
+            self._emit(
+                {
+                    "type": "risk_halt",
+                    "timestamp": now,
+                    "reason": "Max drawdown exceeded",
+                    "drawdown": self.risk.current_drawdown,
+                }
+            )
+            self._stop_event.set()
 
-                point_events = self.point_farmer.execute()
-                for event in point_events:
-                    await self._emit_event(event)
+    async def _run(self) -> None:
+        self.state.status = "running"
+        self.state.started_at = time.time()
+        self.state.last_tick = self.state.started_at
+        self._stop_event.clear()
 
-                unrealized = self.perps_strategy.get_total_unrealized_pnl()
-                defi_earned = self.defi_strategy.get_total_earned()
-                self.portfolio_value = self.cash + unrealized + defi_earned
+        self._emit({"type": "agent_started", "timestamp": self.state.started_at, "simulation_mode": self.simulation_mode})
 
-                await self._emit_event({
-                    "type": "status_update",
-                    "portfolio_value": round(self.portfolio_value, 2),
-                    "realized_pnl": round(self.realized_pnl, 2),
-                    "unrealized_pnl": round(unrealized, 2),
-                    "total_points": round(self.point_farmer.get_total_points(), 2),
-                    "airdrop_score": self.point_farmer.get_airdrop_score(),
-                    "trade_count_today": self._trade_count_today,
-                    "daily_loss_today": round(self._daily_loss_today, 2),
-                    "timestamp": time.time(),
-                })
+        while not self._stop_event.is_set():
+            await self._tick()
+            await asyncio.sleep(self.loop_interval)
 
-                await asyncio.sleep(settings.AGENT_LOOP_INTERVAL)
-            except asyncio.CancelledError:
-                break
-            except Exception as e:
-                await self._emit_event({"type": "error", "message": str(e), "timestamp": time.time()})
-                await asyncio.sleep(settings.AGENT_LOOP_INTERVAL)
+        if self.state.status != "halted":
+            self.state.status = "stopped"
+        self._emit({"type": "agent_stopped", "timestamp": time.time()})
 
-    async def start(self):
-        if self.status == "running":
-            return {"status": "already_running"}
-        self._task = asyncio.create_task(self._run_loop())
-        return {"status": "started"}
+    async def start(self) -> dict:
+        if self._task and not self._task.done():
+            return {"status": self.state.status}
 
-    async def stop(self):
-        self.status = "stopped"
-        if self._task:
-            self._task.cancel()
-            try:
-                await self._task
-            except asyncio.CancelledError:
-                pass
-            self._task = None
-        return {"status": "stopped"}
+        self._task = asyncio.create_task(self._run())
+        return {"status": "running"}
 
-    async def resume(self):
-        if self.status == "halted":
-            self.risk_manager.peak_value = self.portfolio_value
-            self.risk_manager.current_drawdown = 0.0
-        return await self.start()
+    async def stop(self) -> dict:
+        if self._task and not self._task.done():
+            self._stop_event.set()
+            await self._task
+        self.state.status = "stopped"
+        return {"status": self.state.status}
 
-    def get_status(self) -> dict:
+    def status(self) -> dict:
+        value = self._portfolio_value()
         return {
-            "status": self.status,
-            "simulation_mode": settings.SIMULATION_MODE,
-            "portfolio_value": round(self.portfolio_value, 2),
-            "cash": round(self.cash, 2),
-            "realized_pnl": round(self.realized_pnl, 2),
-            "unrealized_pnl": round(self.perps_strategy.get_total_unrealized_pnl(), 2),
-            "defi_earned": round(self.defi_strategy.get_total_earned(), 2),
-            "total_points": round(self.point_farmer.get_total_points(), 2),
-            "airdrop_score": self.point_farmer.get_airdrop_score(),
-            "risk_metrics": self.risk_manager.get_risk_metrics(),
-            "trade_count_today": self._trade_count_today,
-            "daily_loss_today": round(self._daily_loss_today, 2),
-            "started_at": self.started_at,
+            "status": self.state.status,
+            "simulation_mode": self.simulation_mode,
+            "portfolio_value": round(value, 4),
+            "cash": round(self.cash, 4),
+            "realized_pnl": round(self.perps.realized_pnl, 4),
+            "unrealized_pnl": round(self.perps.unrealized_pnl(), 4),
+            "defi_earned": round(self.defi.total_earned(), 4),
+            "total_points": round(self.points.total_points(), 4),
+            "airdrop_score": round(self.points.airdrop_score(), 4),
+            "risk_metrics": self.risk.metrics(),
+            "started_at": self.state.started_at,
         }
 
+    def positions(self) -> dict:
+        return {
+            "perps": self.perps.positions_payload(),
+            "defi": self.defi.positions_payload(),
+        }
 
-agent = FarmingAgent()
+    def points_payload(self) -> dict:
+        return {
+            "breakdown": self.points.payload(),
+            "total_points": round(self.points.total_points(), 4),
+            "airdrop_score": round(self.points.airdrop_score(), 4),
+        }
+
+    def trades_payload(self) -> dict:
+        return {"trades": self.state.trades}
+
+
+agent = HyperliquidFarmingAgent()

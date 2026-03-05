@@ -1,48 +1,50 @@
 "use client";
-import type { Trade } from "@/lib/api";
 
-interface TradeTableProps {
-  trades: Trade[];
+import type { TradesResponse } from "@/lib/api";
+
+interface Props {
+  trades: TradesResponse["trades"];
 }
 
-export function TradeTable({ trades }: TradeTableProps) {
-  if (!trades.length) {
-    return <p className="text-gray-500 text-sm">No trades yet.</p>;
-  }
+export function TradeTable({ trades }: Props) {
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="text-gray-400 border-b border-gray-700">
-            <th className="text-left py-2 pr-4">Time</th>
-            <th className="text-left py-2 pr-4">Market</th>
-            <th className="text-left py-2 pr-4">Side</th>
-            <th className="text-right py-2 pr-4">Size</th>
-            <th className="text-right py-2 pr-4">Price</th>
-            <th className="text-right py-2">PnL</th>
-          </tr>
-        </thead>
-        <tbody>
-          {trades.map((t) => (
-            <tr key={t.id} className="border-b border-gray-800 hover:bg-gray-800/50">
-              <td className="py-1.5 pr-4 text-gray-400 text-xs">
-                {new Date(t.timestamp).toLocaleTimeString()}
-              </td>
-              <td className="py-1.5 pr-4 font-medium">{t.market}</td>
-              <td className={`py-1.5 pr-4 font-medium ${
-                t.side === "long" ? "text-green-400" : t.side === "short" ? "text-red-400" : "text-gray-400"
-              }`}>
-                {t.side.toUpperCase()}
-              </td>
-              <td className="py-1.5 pr-4 text-right">${t.size.toFixed(2)}</td>
-              <td className="py-1.5 pr-4 text-right">${t.price.toFixed(2)}</td>
-              <td className={`py-1.5 text-right font-medium ${t.pnl >= 0 ? "text-green-400" : "text-red-400"}`}>
-                {t.pnl >= 0 ? "+" : ""}{t.pnl.toFixed(4)}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <section className="rounded-xl border border-slate-800 bg-slate-950/70 p-4">
+      <h3 className="mb-3 text-sm font-semibold text-slate-200">Trade Log</h3>
+      {trades.length === 0 ? (
+        <p className="text-sm text-slate-500">No trades recorded yet.</p>
+      ) : (
+        <div className="max-h-72 overflow-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-800 text-left text-slate-400">
+                <th className="py-2 pr-3">Time</th>
+                <th className="py-2 pr-3">Type</th>
+                <th className="py-2 pr-3">Symbol</th>
+                <th className="py-2 pr-3">Side</th>
+                <th className="py-2 text-right">PnL</th>
+              </tr>
+            </thead>
+            <tbody>
+              {trades
+                .slice()
+                .reverse()
+                .map((t, idx) => (
+                  <tr key={`${t.symbol}-${t.timestamp}-${idx}`} className="border-b border-slate-900">
+                    <td className="py-2 pr-3 text-xs text-slate-500">
+                      {new Date(t.timestamp * 1000).toLocaleTimeString()}
+                    </td>
+                    <td className="py-2 pr-3">{t.type}</td>
+                    <td className="py-2 pr-3">{t.symbol}</td>
+                    <td className="py-2 pr-3">{t.side}</td>
+                    <td className={`py-2 text-right ${Number(t.pnl ?? 0) >= 0 ? "text-emerald-300" : "text-rose-300"}`}>
+                      {t.pnl !== undefined ? `${Number(t.pnl) >= 0 ? "+" : ""}$${Number(t.pnl).toFixed(2)}` : "—"}
+                    </td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
   );
 }

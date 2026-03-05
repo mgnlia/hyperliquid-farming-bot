@@ -1,92 +1,82 @@
-'use client'
-import { useEffect, useState } from 'react'
-import { api } from '@/lib/api'
+"use client";
 
-export default function PositionsTable() {
-  const [data, setData] = useState<any>(null)
+import type { DefiPosition, PerpPosition } from "@/lib/api";
 
-  useEffect(() => {
-    api.positions().then(setData).catch(() => {})
-    const t = setInterval(() => api.positions().then(setData).catch(() => {}), 15000)
-    return () => clearInterval(t)
-  }, [])
+interface Props {
+  perps: PerpPosition[];
+  defi: DefiPosition[];
+}
 
-  if (!data) return (
-    <div className="card">
-      <h2 className="text-lg font-bold mb-4">📊 Positions</h2>
-      <div className="text-[#6b7280] text-sm">Loading...</div>
-    </div>
-  )
-
-  const risk = data.risk || {}
-  const positions = risk.positions || {}
-  const defi = data.defi_positions || {}
-  const drawdownColor = (risk.drawdown_pct || 0) > 7 ? '#ef4444' : (risk.drawdown_pct || 0) > 4 ? '#f59e0b' : '#00d4a0'
-
+export function PositionsTable({ perps, defi }: Props) {
   return (
-    <div className="card flex flex-col gap-4">
-      <h2 className="text-lg font-bold">📊 Positions & Risk</h2>
-
-      {/* Risk summary */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className="bg-[#1f2937] rounded-lg p-3 text-center">
-          <div className="text-xs text-[#6b7280] mb-1">Exposure</div>
-          <div className="text-sm font-bold text-[#3b82f6]">${risk.total_exposure_usd?.toFixed(0)}</div>
-          <div className="text-xs text-[#6b7280]">/ ${risk.max_exposure_usd}</div>
-        </div>
-        <div className="bg-[#1f2937] rounded-lg p-3 text-center">
-          <div className="text-xs text-[#6b7280] mb-1">Drawdown</div>
-          <div className="text-sm font-bold" style={{ color: drawdownColor }}>{risk.drawdown_pct?.toFixed(1)}%</div>
-          <div className="text-xs text-[#6b7280]">max 10%</div>
-        </div>
-        <div className="bg-[#1f2937] rounded-lg p-3 text-center">
-          <div className="text-xs text-[#6b7280] mb-1">Status</div>
-          <div className={`text-sm font-bold ${risk.blocked ? 'text-[#ef4444]' : 'text-[#00d4a0]'}`}>
-            {risk.blocked ? 'BLOCKED' : 'OK'}
+    <div className="grid gap-4 lg:grid-cols-2">
+      <section className="rounded-xl border border-slate-800 bg-slate-950/70 p-4">
+        <h3 className="mb-3 text-sm font-semibold text-slate-200">Perps Positions</h3>
+        {perps.length === 0 ? (
+          <p className="text-sm text-slate-500">No open positions.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-800 text-left text-slate-400">
+                  <th className="py-2 pr-3">Symbol</th>
+                  <th className="py-2 pr-3">Side</th>
+                  <th className="py-2 pr-3 text-right">Size</th>
+                  <th className="py-2 pr-3 text-right">Entry</th>
+                  <th className="py-2 text-right">PnL</th>
+                </tr>
+              </thead>
+              <tbody>
+                {perps.map((p) => (
+                  <tr key={`${p.symbol}-${p.opened_at}`} className="border-b border-slate-900">
+                    <td className="py-2 pr-3">{p.symbol}</td>
+                    <td className={`py-2 pr-3 ${p.side === "long" ? "text-emerald-300" : "text-rose-300"}`}>
+                      {p.side}
+                    </td>
+                    <td className="py-2 pr-3 text-right">{p.size.toFixed(4)}</td>
+                    <td className="py-2 pr-3 text-right">${p.entry_price.toFixed(2)}</td>
+                    <td className={`py-2 text-right ${p.unrealized_pnl >= 0 ? "text-emerald-300" : "text-rose-300"}`}>
+                      {p.unrealized_pnl >= 0 ? "+" : ""}${p.unrealized_pnl.toFixed(2)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-          <div className="text-xs text-[#6b7280]">{risk.simulation_mode ? 'Sim' : 'Live'}</div>
-        </div>
-      </div>
+        )}
+      </section>
 
-      {/* Active perps positions */}
-      {Object.keys(positions).length > 0 && (
-        <div>
-          <div className="text-xs text-[#6b7280] uppercase mb-2">Perps Positions</div>
-          <div className="flex flex-col gap-1">
-            {Object.entries(positions).map(([asset, usd]: [string, any]) => (
-              <div key={asset} className="flex justify-between text-sm">
-                <span className="font-medium">{asset}</span>
-                <span className="text-[#3b82f6]">${usd.toFixed(2)}</span>
-              </div>
-            ))}
+      <section className="rounded-xl border border-slate-800 bg-slate-950/70 p-4">
+        <h3 className="mb-3 text-sm font-semibold text-slate-200">DeFi Farming Positions</h3>
+        {defi.length === 0 ? (
+          <p className="text-sm text-slate-500">No active DeFi pools.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-800 text-left text-slate-400">
+                  <th className="py-2 pr-3">Protocol</th>
+                  <th className="py-2 pr-3">Pool</th>
+                  <th className="py-2 pr-3 text-right">Deposit</th>
+                  <th className="py-2 pr-3 text-right">APY</th>
+                  <th className="py-2 text-right">Earned</th>
+                </tr>
+              </thead>
+              <tbody>
+                {defi.map((p) => (
+                  <tr key={`${p.protocol}-${p.pool}`} className="border-b border-slate-900">
+                    <td className="py-2 pr-3">{p.protocol}</td>
+                    <td className="py-2 pr-3">{p.pool}</td>
+                    <td className="py-2 pr-3 text-right">${p.deposited.toFixed(2)}</td>
+                    <td className="py-2 pr-3 text-right">{(p.apy * 100).toFixed(1)}%</td>
+                    <td className="py-2 text-right text-emerald-300">${p.earned.toFixed(4)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        </div>
-      )}
-
-      {/* DeFi positions */}
-      {Object.keys(defi).length > 0 && (
-        <div>
-          <div className="text-xs text-[#6b7280] uppercase mb-2">DeFi Positions</div>
-          <div className="flex flex-col gap-2">
-            {Object.entries(defi).map(([protocol, pos]: [string, any]) => (
-              <div key={protocol} className="flex justify-between items-center text-sm">
-                <div>
-                  <span className="font-medium capitalize">{protocol}</span>
-                  <span className="text-xs text-[#6b7280] ml-2">{pos.asset}</span>
-                </div>
-                <div className="text-right">
-                  <span className="text-[#00d4a0]">${pos.size_usd?.toFixed(0)}</span>
-                  <span className="text-xs text-[#6b7280] ml-1">{pos.apy_pct?.toFixed(0)}% APY</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {Object.keys(positions).length === 0 && Object.keys(defi).length === 0 && (
-        <div className="text-[#6b7280] text-sm text-center py-4">No open positions yet</div>
-      )}
+        )}
+      </section>
     </div>
-  )
+  );
 }

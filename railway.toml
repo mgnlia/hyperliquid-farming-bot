@@ -1,10 +1,9 @@
 [build]
-dockerfilePath = "Dockerfile"
+builder = "DOCKERFILE"
 
 [deploy]
-startCommand = "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+startCommand = "uvicorn src.main:app --host 0.0.0.0 --port $PORT"
 healthcheckPath = "/health"
 healthcheckTimeout = 30
-
-[[services]]
-name = "hyperliquid-farming-bot"
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3

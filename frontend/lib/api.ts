@@ -1,107 +1,95 @@
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-
 export interface BotStatus {
   status: string;
   simulation_mode: boolean;
-  started_at: string;
-  tick_count: number;
-  last_tick: string;
-  total_pnl: number;
+  portfolio_value: number;
+  cash: number;
+  realized_pnl: number;
+  unrealized_pnl: number;
+  defi_earned: number;
   total_points: number;
+  airdrop_score: number;
+  risk_metrics: {
+    peak_value: number;
+    current_drawdown: number;
+    max_drawdown_pct: number;
+    max_position_pct: number;
+    kelly_fraction: number;
+    is_halted: boolean;
+  };
+  started_at: number | null;
 }
 
 export interface PerpPosition {
-  market: string;
-  side: string;
-  size_usdc: number;
+  symbol: string;
+  side: "long" | "short";
+  size: number;
   entry_price: number;
   current_price: number;
-  pnl: number;
+  unrealized_pnl: number;
+  opened_at: number;
 }
 
-export interface FarmPosition {
+export interface DefiPosition {
   protocol: string;
-  type: string;
-  amount: number;
-  apy_est: number;
-  points_per_day: number;
-  cumulative_points: number;
-  opened_at: string;
+  pool: string;
+  deposited: number;
+  apy: number;
+  earned: number;
+  started_at: number;
 }
 
-export interface Portfolio {
-  total_pnl: number;
-  total_tvl: number;
-  open_perp_positions: number;
-  perp_positions: PerpPosition[];
-  farm_positions: FarmPosition[];
-}
-
-export interface Trade {
-  id: number;
-  timestamp: string;
-  strategy: string;
-  market: string;
-  side: string;
-  size: number;
-  price: number;
-  pnl: number;
-}
-
-export interface ProtocolPoints {
+export interface PointsProtocol {
   protocol: string;
+  points: number;
+  multiplier: number;
+  actions_count: number;
+  last_action: number;
+}
+
+export interface PointsResponse {
+  breakdown: PointsProtocol[];
   total_points: number;
-  days_active: number;
-  recent_events: Array<{ reason: string; amount: number; cumulative: number; timestamp: string }>;
+  airdrop_score: number;
 }
 
-export interface PointsSummary {
-  grand_total: number;
-  by_protocol: ProtocolPoints[];
-  db_summary: Array<{ protocol: string; total_points: number; events: number }>;
+export interface TradesResponse {
+  trades: Array<{
+    type: string;
+    symbol: string;
+    side: string;
+    size: number;
+    price?: number;
+    entry_price?: number;
+    exit_price?: number;
+    pnl?: number;
+    timestamp: number;
+  }>;
 }
-
-export interface FullStatus {
-  bot: BotStatus;
-  perps: {
-    strategy: string;
-    open_positions: number;
-    trades_today: number;
-    total_pnl: number;
-    positions: PerpPosition[];
-  };
-  farming: {
-    strategy: string;
-    positions: FarmPosition[];
-    total_tvl: number;
-    total_points: number;
-  };
-  points: ProtocolPoints[];
-}
-
-// ── API client ────────────────────────────────────────────────────────────────
 
 async function get<T>(path: string): Promise<T> {
   const res = await fetch(`${BASE}${path}`, { cache: "no-store" });
-  if (!res.ok) throw new Error(`${path} → ${res.status}`);
-  return res.json() as Promise<T>;
+  if (!res.ok) {
+    throw new Error(`${path}: ${res.status}`);
+  }
+  return (await res.json()) as T;
 }
 
 async function post<T>(path: string): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, { method: "POST", cache: "no-store" });
-  if (!res.ok) throw new Error(`${path} → ${res.status}`);
-  return res.json() as Promise<T>;
+  const res = await fetch(`${BASE}${path}`, { method: "POST" });
+  if (!res.ok) {
+    throw new Error(`${path}: ${res.status}`);
+  }
+  return (await res.json()) as T;
 }
 
 export const api = {
-  health: () => get<{ status: string; bot: string }>("/health"),
-  status: () => get<FullStatus>("/api/status"),
-  portfolio: () => get<Portfolio>("/api/portfolio"),
-  trades: (limit = 50) => get<{ trades: Trade[]; count: number }>(`/api/trades?limit=${limit}`),
-  points: () => get<PointsSummary>("/api/points"),
-  strategies: () => get<unknown>("/api/strategies"),
-  botStart: () => post<{ status: string }>("/api/bot/start"),
-  botStop: () => post<{ status: string }>("/api/bot/stop"),
+  health: () => get<{ status: string; service: string }>("/health"),
+  status: () => get<BotStatus>("/api/status"),
+  positions: () => get<{ perps: PerpPosition[]; defi: DefiPosition[] }>("/api/positions"),
+  points: () => get<PointsResponse>("/api/points"),
+  trades: () => get<TradesResponse>("/api/trades"),
+  start: () => post<{ status: string }>("/api/agent/start"),
+  stop: () => post<{ status: string }>("/api/agent/stop"),
 };

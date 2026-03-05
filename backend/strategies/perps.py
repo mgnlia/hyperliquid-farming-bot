@@ -1,151 +1,115 @@
-"""Perpetual futures trading strategy for Hyperliquid HIP-3 markets."""
+"""Simulated Hyperliquid perps strategy."""
+
+from __future__ import annotations
 
 import random
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+
+SYMBOLS = ["BTC", "ETH", "SOL", "HYPE"]
 
 
 @dataclass
 class PerpPosition:
-    """Represents an open perpetual position."""
-
     symbol: str
     side: str
     size: float
     entry_price: float
     current_price: float
-    unrealized_pnl: float = 0.0
-    opened_at: float = field(default_factory=time.time)
+    opened_at: float
 
-    def to_dict(self) -> dict:
-        return {
-            "symbol": self.symbol,
-            "side": self.side,
-            "size": round(self.size, 4),
-            "entry_price": round(self.entry_price, 2),
-            "current_price": round(self.current_price, 2),
-            "unrealized_pnl": round(self.unrealized_pnl, 2),
-            "opened_at": self.opened_at,
-        }
-
-
-SIMULATED_MARKETS = [
-    {"symbol": "ETH-PERP", "base_price": 3200.0, "volatility": 0.02},
-    {"symbol": "BTC-PERP", "base_price": 95000.0, "volatility": 0.015},
-    {"symbol": "HYPE-PERP", "base_price": 28.0, "volatility": 0.04},
-    {"symbol": "ARB-PERP", "base_price": 1.10, "volatility": 0.03},
-    {"symbol": "SOL-PERP", "base_price": 180.0, "volatility": 0.025},
-    {"symbol": "PURR-PERP", "base_price": 0.45, "volatility": 0.06},
-]
+    @property
+    def unrealized_pnl(self) -> float:
+        direction = 1 if self.side == "long" else -1
+        return (self.current_price - self.entry_price) * self.size * direction
 
 
 class PerpsStrategy:
-    """Simulated perpetual futures trading strategy."""
-
     def __init__(self):
         self.positions: list[PerpPosition] = []
-        self.prices: dict[str, float] = {}
-        self.trade_history: list[dict] = []
-        self._init_prices()
+        self.realized_pnl: float = 0.0
+        self._price_state = {"BTC": 72000.0, "ETH": 3600.0, "SOL": 180.0, "HYPE": 35.0}
 
-    def _init_prices(self):
-        for market in SIMULATED_MARKETS:
-            self.prices[market["symbol"]] = market["base_price"]
+    def _price(self, symbol: str) -> float:
+        base = self._price_state[symbol]
+        drift = random.uniform(-0.02, 0.02)
+        nxt = max(0.01, base * (1 + drift))
+        self._price_state[symbol] = nxt
+        return nxt
 
-    def update_prices(self):
-        """Simulate price movements."""
-        for market in SIMULATED_MARKETS:
-            symbol = market["symbol"]
-            vol = market["volatility"]
-            change = random.gauss(0, vol)
-            current = self.prices.get(symbol, market["base_price"])
-            new_price = current * (1 + change)
-            self.prices[symbol] = max(new_price, market["base_price"] * 0.5)
+    def maybe_open_position(self, max_notional: float) -> dict | None:
+        if len(self.positions) >= 6:
+            return None
 
-    def generate_signal(self, symbol: str) -> dict:
-        """Generate a simulated trading signal."""
-        momentum = random.uniform(-1, 1)
-        strength = abs(momentum)
-        if strength < 0.3:
-            return {"action": "hold", "symbol": symbol, "strength": 0.0}
-        side = "long" if momentum > 0 else "short"
+        symbol = random.choice(SYMBOLS)
+        side = random.choice(["long", "short"])
+        price = self._price(symbol)
+
+        # randomize size with mild preference for smaller risk
+        notional = max_notional * random.uniform(0.3, 1.0)
+        size = max(0.0001, notional / price)
+
+        position = PerpPosition(
+            symbol=symbol,
+            side=side,
+            size=size,
+            entry_price=price,
+            current_price=price,
+            opened_at=time.time(),
+        )
+        self.positions.append(position)
+
         return {
-            "action": "open",
+            "type": "perp_open",
             "symbol": symbol,
             "side": side,
-            "strength": round(strength, 3),
-            "win_prob": round(0.45 + strength * 0.15, 3),
-            "win_loss_ratio": round(1.2 + strength * 0.8, 3),
+            "size": round(size, 6),
+            "price": round(price, 4),
+            "timestamp": time.time(),
         }
 
-    def execute_signals(self, kelly_size_fn, portfolio_value: float) -> list[dict]:
-        """Run strategy: update prices, generate signals, execute trades."""
-        self.update_prices()
-        events = []
+    def maybe_close_position(self) -> dict | None:
+        if not self.positions or random.random() < 0.55:
+            return None
 
+        idx = random.randrange(len(self.positions))
+        pos = self.positions[idx]
+        exit_price = self._price(pos.symbol)
+        pos.current_price = exit_price
+
+        pnl = pos.unrealized_pnl
+        self.realized_pnl += pnl
+
+        closed = self.positions.pop(idx)
+
+        return {
+            "type": "perp_close",
+            "symbol": closed.symbol,
+            "side": closed.side,
+            "size": round(closed.size, 6),
+            "entry_price": round(closed.entry_price, 4),
+            "exit_price": round(exit_price, 4),
+            "pnl": round(pnl, 4),
+            "timestamp": time.time(),
+        }
+
+    def mark_to_market(self) -> None:
         for pos in self.positions:
-            pos.current_price = self.prices.get(pos.symbol, pos.entry_price)
-            if pos.side == "long":
-                pos.unrealized_pnl = (pos.current_price - pos.entry_price) * pos.size
-            else:
-                pos.unrealized_pnl = (pos.entry_price - pos.current_price) * pos.size
+            pos.current_price = self._price(pos.symbol)
 
-        closed = []
-        for pos in self.positions:
-            pnl_pct = pos.unrealized_pnl / (pos.entry_price * pos.size) if pos.size > 0 else 0
-            if pnl_pct > 0.03 or pnl_pct < -0.02 or random.random() < 0.1:
-                trade = {
-                    "type": "close",
-                    "symbol": pos.symbol,
-                    "side": pos.side,
-                    "size": pos.size,
-                    "entry_price": pos.entry_price,
-                    "exit_price": pos.current_price,
-                    "pnl": round(pos.unrealized_pnl, 2),
-                    "timestamp": time.time(),
-                }
-                self.trade_history.append(trade)
-                events.append(trade)
-                closed.append(pos)
+    def unrealized_pnl(self) -> float:
+        return sum(pos.unrealized_pnl for pos in self.positions)
 
-        for pos in closed:
-            self.positions.remove(pos)
-
-        if len(self.positions) < 3:
-            market = random.choice(SIMULATED_MARKETS)
-            signal = self.generate_signal(market["symbol"])
-            if signal["action"] == "open":
-                size_pct = kelly_size_fn(signal["win_prob"], signal["win_loss_ratio"])
-                if size_pct > 0:
-                    position_value = portfolio_value * size_pct
-                    price = self.prices[signal["symbol"]]
-                    size = position_value / price
-                    pos = PerpPosition(
-                        symbol=signal["symbol"],
-                        side=signal["side"],
-                        size=size,
-                        entry_price=price,
-                        current_price=price,
-                    )
-                    self.positions.append(pos)
-                    trade = {
-                        "type": "open",
-                        "symbol": pos.symbol,
-                        "side": pos.side,
-                        "size": round(pos.size, 4),
-                        "price": round(price, 2),
-                        "timestamp": time.time(),
-                    }
-                    self.trade_history.append(trade)
-                    events.append(trade)
-
-        return events
-
-    def get_positions(self) -> list[dict]:
-        return [p.to_dict() for p in self.positions]
-
-    def get_total_unrealized_pnl(self) -> float:
-        return sum(p.unrealized_pnl for p in self.positions)
-
-    def get_recent_trades(self, limit: int = 50) -> list[dict]:
-        return self.trade_history[-limit:]
+    def positions_payload(self) -> list[dict]:
+        return [
+            {
+                "symbol": p.symbol,
+                "side": p.side,
+                "size": round(p.size, 6),
+                "entry_price": round(p.entry_price, 4),
+                "current_price": round(p.current_price, 4),
+                "unrealized_pnl": round(p.unrealized_pnl, 4),
+                "opened_at": p.opened_at,
+            }
+            for p in self.positions
+        ]

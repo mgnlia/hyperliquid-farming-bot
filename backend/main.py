@@ -1,19 +1,17 @@
-"""FastAPI application with REST endpoints and SSE streaming."""
+"""FastAPI service exposing bot status, metrics, and controls."""
+
+from __future__ import annotations
 
 import asyncio
 import json
-import secrets
-from collections import deque
 
-from fastapi import Depends, FastAPI, HTTPException, Request, status
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from sse_starlette.sse import EventSourceResponse
+from fastapi.responses import StreamingResponse
 
 from backend.agent import agent
-from backend.config import settings
 
-app = FastAPI(title="Hyperliquid Farming Bot", version="0.1.0")
+app = FastAPI(title="Hyperliquid Farming Bot API", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -23,96 +21,64 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-_bearer = HTTPBearer(auto_error=False)
+
+@app.on_event("startup")
+async def startup_event() -> None:
+    await agent.start()
 
 
-def _require_api_key(credentials: HTTPAuthorizationCredentials | None = Depends(_bearer)) -> None:
-    """Validate Bearer token. Skipped when BOT_API_KEY is empty (dev/CI mode)."""
-    if not settings.BOT_API_KEY:
-        return  # auth disabled
-    if credentials is None or not secrets.compare_digest(credentials.credentials, settings.BOT_API_KEY):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key")
+@app.on_event("shutdown")
+async def shutdown_event() -> None:
+    await agent.stop()
 
 
 @app.get("/health")
-async def health():
-    """Health check — no auth required."""
+def health() -> dict:
     return {"status": "ok", "service": "hyperliquid-farming-bot"}
 
 
-@app.get("/api/status", dependencies=[Depends(_require_api_key)])
-async def get_status():
-    return agent.get_status()
+@app.get("/api/status")
+def get_status() -> dict:
+    return agent.status()
 
 
-@app.get("/api/positions", dependencies=[Depends(_require_api_key)])
-async def get_positions():
-    return {"perps": agent.perps_strategy.get_positions(), "defi": agent.defi_strategy.get_positions()}
+@app.get("/api/positions")
+def get_positions() -> dict:
+    return agent.positions()
 
 
-@app.get("/api/points", dependencies=[Depends(_require_api_key)])
-async def get_points():
-    return {
-        "breakdown": agent.point_farmer.get_points_breakdown(),
-        "total_points": round(agent.point_farmer.get_total_points(), 2),
-        "airdrop_score": agent.point_farmer.get_airdrop_score(),
-    }
+@app.get("/api/points")
+def get_points() -> dict:
+    return agent.points_payload()
 
 
-@app.get("/api/trades", dependencies=[Depends(_require_api_key)])
-async def get_trades():
-    return {"trades": agent.perps_strategy.get_recent_trades(50)}
+@app.get("/api/trades")
+def get_trades() -> dict:
+    return agent.trades_payload()
 
 
-@app.post("/api/agent/start", dependencies=[Depends(_require_api_key)])
-async def start_agent():
+@app.post("/api/agent/start")
+async def start_agent() -> dict:
     return await agent.start()
 
 
-@app.post("/api/agent/stop", dependencies=[Depends(_require_api_key)])
-async def stop_agent():
+@app.post("/api/agent/stop")
+async def stop_agent() -> dict:
     return await agent.stop()
 
 
-@app.post("/api/agent/resume", dependencies=[Depends(_require_api_key)])
-async def resume_agent():
-    return await agent.resume()
+async def event_generator():
+    last_index = 0
+    while True:
+        events = agent.state.events
+        if last_index < len(events):
+            for event in events[last_index:]:
+                yield f"data: {json.dumps(event)}\n\n"
+            last_index = len(events)
+
+        await asyncio.sleep(1)
 
 
 @app.get("/api/stream")
-async def event_stream(request: Request):
-    """SSE live event stream.
-
-    Uses a bounded asyncio.Queue per subscriber — safe when the event buffer
-    is trimmed (old approach of slicing a list would kill existing iterators).
-    """
-
-    async def generate():
-        # Bounded queue: drop oldest if subscriber is too slow
-        queue: asyncio.Queue = asyncio.Queue(maxsize=200)
-
-        async def callback(event: dict):
-            if queue.full():
-                try:
-                    queue.get_nowait()  # drop oldest
-                except asyncio.QueueEmpty:
-                    pass
-            await queue.put(event)
-
-        agent.add_event_callback(callback)
-        try:
-            while True:
-                if await request.is_disconnected():
-                    break
-                try:
-                    event = await asyncio.wait_for(queue.get(), timeout=30.0)
-                    yield {"event": "message", "data": json.dumps(event)}
-                except asyncio.TimeoutError:
-                    # Send keepalive comment
-                    yield {"event": "ping", "data": "{}"}
-        except asyncio.CancelledError:
-            pass
-        finally:
-            agent.remove_event_callback(callback)
-
-    return EventSourceResponse(generate())
+async def stream() -> StreamingResponse:
+    return StreamingResponse(event_generator(), media_type="text/event-stream")

@@ -1,96 +1,76 @@
-"""Cross-protocol point accumulation strategy for airdrop farming."""
+"""Cross-protocol points simulation for airdrop farming."""
+
+from __future__ import annotations
 
 import random
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 @dataclass
 class ProtocolPoints:
-    """Tracks points for a specific protocol."""
-
     protocol: str
-    points: float = 0.0
-    multiplier: float = 1.0
-    actions_count: int = 0
-    last_action: float = field(default_factory=time.time)
-
-    def to_dict(self) -> dict:
-        return {
-            "protocol": self.protocol,
-            "points": round(self.points, 2),
-            "multiplier": round(self.multiplier, 2),
-            "actions_count": self.actions_count,
-            "last_action": self.last_action,
-        }
-
-
-PROTOCOL_CONFIGS = [
-    {"name": "Felix", "base_points": 15.0, "actions": ["mint_stablecoin", "provide_collateral", "borrow", "repay"], "mult_range": (1.0, 2.5)},
-    {"name": "Mizu", "base_points": 12.0, "actions": ["deposit_vault", "stake_lp", "claim_rewards"], "mult_range": (1.0, 3.0)},
-    {"name": "Drip", "base_points": 20.0, "actions": ["daily_check_in", "swap", "provide_liquidity", "refer_user"], "mult_range": (1.0, 2.0)},
-    {"name": "Hyperbeat", "base_points": 10.0, "actions": ["stake_hype", "vote_governance", "delegate"], "mult_range": (1.0, 4.0)},
-    {"name": "HyperLend", "base_points": 8.0, "actions": ["supply_asset", "borrow_asset", "repay_loan"], "mult_range": (1.0, 2.0)},
-    {"name": "KittenSwap", "base_points": 18.0, "actions": ["swap_tokens", "add_liquidity", "farm_rewards"], "mult_range": (1.0, 2.5)},
-]
+    points: float
+    multiplier: float
+    actions_count: int
+    last_action: float
 
 
 class PointFarmerStrategy:
-    """Simulated cross-protocol point accumulation."""
-
     def __init__(self):
-        self.protocol_points: dict[str, ProtocolPoints] = {}
-        self.events: list[dict] = []
-        self._init_protocols()
+        now = time.time()
+        self.protocols: dict[str, ProtocolPoints] = {
+            "Felix": ProtocolPoints("Felix", 0.0, 1.20, 0, now),
+            "Mizu": ProtocolPoints("Mizu", 0.0, 1.10, 0, now),
+            "Drip": ProtocolPoints("Drip", 0.0, 1.35, 0, now),
+            "Hyperbeat": ProtocolPoints("Hyperbeat", 0.0, 1.50, 0, now),
+        }
 
-    def _init_protocols(self):
-        for cfg in PROTOCOL_CONFIGS:
-            self.protocol_points[cfg["name"]] = ProtocolPoints(
-                protocol=cfg["name"],
-                multiplier=random.uniform(*cfg["mult_range"]),
+    def farm_cycle(self) -> list[dict]:
+        events: list[dict] = []
+        now = time.time()
+
+        for name, state in self.protocols.items():
+            if random.random() < 0.35:
+                continue
+
+            base = random.uniform(4, 18)
+            bonus = random.uniform(0.9, 1.25)
+            earned = base * state.multiplier * bonus
+
+            state.points += earned
+            state.actions_count += 1
+            state.last_action = now
+
+            events.append(
+                {
+                    "type": "points_farmed",
+                    "protocol": name,
+                    "earned": round(earned, 4),
+                    "total": round(state.points, 4),
+                    "timestamp": now,
+                }
             )
-
-    def execute(self) -> list[dict]:
-        """Execute point farming actions across protocols."""
-        events = []
-        num_actions = random.randint(1, 3)
-        for _ in range(num_actions):
-            cfg = random.choice(PROTOCOL_CONFIGS)
-            action = random.choice(cfg["actions"])
-            pp = self.protocol_points[cfg["name"]]
-
-            if random.random() < 0.1:
-                pp.multiplier = random.uniform(*cfg["mult_range"])
-
-            points_earned = cfg["base_points"] * pp.multiplier * random.uniform(0.8, 1.5)
-            pp.points += points_earned
-            pp.actions_count += 1
-            pp.last_action = time.time()
-
-            event = {
-                "type": "points_earned",
-                "protocol": cfg["name"],
-                "action": action,
-                "points": round(points_earned, 2),
-                "total_points": round(pp.points, 2),
-                "multiplier": round(pp.multiplier, 2),
-                "timestamp": time.time(),
-            }
-            events.append(event)
-            self.events.append(event)
 
         return events
 
-    def get_points_breakdown(self) -> list[dict]:
-        return [pp.to_dict() for pp in self.protocol_points.values()]
+    def total_points(self) -> float:
+        return sum(s.points for s in self.protocols.values())
 
-    def get_total_points(self) -> float:
-        return sum(pp.points for pp in self.protocol_points.values())
+    def airdrop_score(self) -> float:
+        # Heuristic 0-100 score based on total points and coverage
+        coverage = sum(1 for s in self.protocols.values() if s.actions_count > 0) / len(self.protocols)
+        raw = (self.total_points() / 1500) * 70 + coverage * 30
+        return max(0.0, min(100.0, raw))
 
-    def get_airdrop_score(self) -> float:
-        """Calculate composite airdrop score (0-100)."""
-        total = self.get_total_points()
-        protocols_active = sum(1 for pp in self.protocol_points.values() if pp.actions_count > 0)
-        diversity_bonus = protocols_active * 5
-        score = min(100, (total / 50) + diversity_bonus)
-        return round(score, 2)
+    def payload(self) -> list[dict]:
+        return [
+            {
+                "protocol": p.protocol,
+                "points": round(p.points, 4),
+                "multiplier": p.multiplier,
+                "actions_count": p.actions_count,
+                "last_action": p.last_action,
+            }
+            for p in self.protocols.values()
+        ]

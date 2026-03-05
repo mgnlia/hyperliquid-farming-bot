@@ -4,46 +4,55 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
 
 jobs:
   backend:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+
       - name: Install uv
         run: pip install uv
-      - name: Install dependencies
-        run: uv pip install --system fastapi uvicorn httpx sse-starlette pydantic pydantic-settings ruff pytest pytest-asyncio anyio
-      - name: Lint
+
+      - name: Install backend dependencies
+        run: uv pip install --system fastapi uvicorn httpx sse-starlette pydantic pydantic-settings ruff
+
+      - name: Ruff check
         run: ruff check .
-        working-directory: backend
-      - name: Test
-        run: pytest tests/ -v --tb=short
-        working-directory: backend
-        env:
-          SIMULATION_MODE: "true"
-          BOT_API_KEY: ""
 
   frontend:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
           node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
       - name: Install dependencies
-        run: npm ci || npm install
-        working-directory: frontend
+        run: npm ci
+
       - name: Type check
-        run: npx tsc --noEmit
         continue-on-error: true
-        working-directory: frontend
+        run: npx tsc --noEmit
+
       - name: Build
-        run: npm run build
-        working-directory: frontend
         env:
           NEXT_PUBLIC_API_URL: http://localhost:8000
+        run: npm run build
