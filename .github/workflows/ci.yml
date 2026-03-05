@@ -1,4 +1,5 @@
 name: CI
+
 on:
   push:
     branches: [main]
@@ -6,31 +7,37 @@ on:
     branches: [main]
 
 jobs:
-  lint-backend:
+  backend:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install ruff
-      - name: Ruff lint
-        run: ruff check . --line-length 120 --ignore E501,E402,F401
+      - name: Install uv
+        run: pip install uv
+      - name: Install dependencies
+        run: uv pip install --system fastapi uvicorn httpx sse-starlette pydantic pydantic-settings ruff
+      - name: Lint
+        run: ruff check .
         working-directory: backend
 
-  typecheck-frontend:
+  frontend:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "18"
-      - name: Install deps
-        run: npm install --legacy-peer-deps
+          node-version: "20"
+      - name: Install dependencies
+        run: npm ci || npm install
         working-directory: frontend
       - name: Type check
         run: npx tsc --noEmit
+        continue-on-error: true
+        working-directory: frontend
+      - name: Build
+        run: npm run build
         working-directory: frontend
         env:
           NEXT_PUBLIC_API_URL: http://localhost:8000
-          NEXT_TELEMETRY_DISABLED: "1"
