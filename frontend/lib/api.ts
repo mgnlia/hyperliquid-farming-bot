@@ -57,14 +57,16 @@ export interface PointsResponse {
 export interface TradesResponse {
   trades: Array<{
     type: string;
-    symbol: string;
-    side: string;
-    size: number;
+    symbol?: string;
+    side?: string;
+    size?: number;
     price?: number;
     entry_price?: number;
     exit_price?: number;
     pnl?: number;
     timestamp: number;
+    created_at?: string;
+    usd_value?: number;
   }>;
 }
 
@@ -89,9 +91,32 @@ export const api = {
   status: () => get<BotStatus>("/api/status"),
   positions: () => get<{ perps: PerpPosition[]; defi: DefiPosition[] }>("/api/positions"),
   points: () => get<PointsResponse>("/api/points"),
-  trades: () => get<TradesResponse>("/api/trades"),
+  airdrop: () => get<PointsResponse>("/api/points"),
+  trades: (..._args: unknown[]) => get<TradesResponse>("/api/trades"),
   start: (..._args: unknown[]) => post<{ status: string }>("/api/agent/start"),
   stop: (..._args: unknown[]) => post<{ status: string }>("/api/agent/stop"),
+  startBot: (..._args: unknown[]) => post<{ status: string }>("/api/agent/start"),
+  stopBot: (..._args: unknown[]) => post<{ status: string }>("/api/agent/stop"),
   streamUrl: (..._args: unknown[]) => `${BASE}/api/stream`,
   resetRisk: (..._args: unknown[]) => post<{ status: string }>("/api/risk/reset"),
 };
+
+export function getSSEUrl(..._args: unknown[]): string {
+  return `${BASE}/api/stream`;
+}
+
+export async function fetchStatus(): Promise<BotStatus> {
+  return api.status();
+}
+
+export async function fetchPositions(): Promise<{ perps: PerpPosition[]; defi: DefiPosition[] }> {
+  return api.positions();
+}
+
+export async function fetchPoints(): Promise<PointsResponse> {
+  return api.points();
+}
+
+export async function fetchFarmEvents(): Promise<TradesResponse> {
+  return api.trades();
+}
