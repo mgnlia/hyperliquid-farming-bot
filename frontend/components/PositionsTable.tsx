@@ -1,5 +1,3 @@
-"use client";
-
 import type { DefiPosition, PerpPosition } from "@/lib/api";
 
 interface Props {
@@ -27,16 +25,16 @@ export function PositionsTable({ perps, defi }: Props) {
                 </tr>
               </thead>
               <tbody>
-                {perps.map((p) => (
-                  <tr key={`${p.symbol}-${p.opened_at}`} className="border-b border-slate-900">
-                    <td className="py-2 pr-3">{p.symbol}</td>
-                    <td className={`py-2 pr-3 ${p.side === "long" ? "text-emerald-300" : "text-rose-300"}`}>
-                      {p.side}
+                {perps.map((position) => (
+                  <tr key={`${position.symbol}-${position.opened_at}`} className="border-b border-slate-900">
+                    <td className="py-2 pr-3">{position.symbol}</td>
+                    <td className={`py-2 pr-3 ${position.side === "long" ? "text-emerald-300" : "text-rose-300"}`}>
+                      {position.side}
                     </td>
-                    <td className="py-2 pr-3 text-right">{p.size.toFixed(4)}</td>
-                    <td className="py-2 pr-3 text-right">${p.entry_price.toFixed(2)}</td>
-                    <td className={`py-2 text-right ${p.unrealized_pnl >= 0 ? "text-emerald-300" : "text-rose-300"}`}>
-                      {p.unrealized_pnl >= 0 ? "+" : ""}${p.unrealized_pnl.toFixed(2)}
+                    <td className="py-2 pr-3 text-right">{position.size.toFixed(4)}</td>
+                    <td className="py-2 pr-3 text-right">${position.entry_price.toFixed(2)}</td>
+                    <td className={`py-2 text-right ${position.unrealized_pnl >= 0 ? "text-emerald-300" : "text-rose-300"}`}>
+                      {position.unrealized_pnl >= 0 ? "+" : ""}${position.unrealized_pnl.toFixed(2)}
                     </td>
                   </tr>
                 ))}
@@ -63,13 +61,13 @@ export function PositionsTable({ perps, defi }: Props) {
                 </tr>
               </thead>
               <tbody>
-                {defi.map((p) => (
-                  <tr key={`${p.protocol}-${p.pool}`} className="border-b border-slate-900">
-                    <td className="py-2 pr-3">{p.protocol}</td>
-                    <td className="py-2 pr-3">{p.pool}</td>
-                    <td className="py-2 pr-3 text-right">${p.deposited.toFixed(2)}</td>
-                    <td className="py-2 pr-3 text-right">{(p.apy * 100).toFixed(1)}%</td>
-                    <td className="py-2 text-right text-emerald-300">${p.earned.toFixed(4)}</td>
+                {defi.map((position) => (
+                  <tr key={`${position.protocol}-${position.pool}`} className="border-b border-slate-900">
+                    <td className="py-2 pr-3">{position.protocol}</td>
+                    <td className="py-2 pr-3">{position.pool}</td>
+                    <td className="py-2 pr-3 text-right">${position.deposited.toFixed(2)}</td>
+                    <td className="py-2 pr-3 text-right">{(position.apy * 100).toFixed(1)}%</td>
+                    <td className="py-2 text-right text-emerald-300">${position.earned.toFixed(4)}</td>
                   </tr>
                 ))}
               </tbody>

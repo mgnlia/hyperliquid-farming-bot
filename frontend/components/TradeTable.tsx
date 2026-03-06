@@ -1,9 +1,7 @@
-"use client";
-
-import type { TradesResponse } from "@/lib/api";
+import type { Trade } from "@/lib/api";
 
 interface Props {
-  trades: TradesResponse["trades"];
+  trades: Trade[];
 }
 
 export function TradeTable({ trades }: Props) {
@@ -28,16 +26,14 @@ export function TradeTable({ trades }: Props) {
               {trades
                 .slice()
                 .reverse()
-                .map((t, idx) => (
-                  <tr key={`${t.symbol}-${t.timestamp}-${idx}`} className="border-b border-slate-900">
-                    <td className="py-2 pr-3 text-xs text-slate-500">
-                      {new Date(t.timestamp * 1000).toLocaleTimeString()}
-                    </td>
-                    <td className="py-2 pr-3">{t.type}</td>
-                    <td className="py-2 pr-3">{t.symbol}</td>
-                    <td className="py-2 pr-3">{t.side}</td>
-                    <td className={`py-2 text-right ${Number(t.pnl ?? 0) >= 0 ? "text-emerald-300" : "text-rose-300"}`}>
-                      {t.pnl !== undefined ? `${Number(t.pnl) >= 0 ? "+" : ""}$${Number(t.pnl).toFixed(2)}` : "—"}
+                .map((trade, index) => (
+                  <tr key={`${trade.symbol ?? "trade"}-${trade.timestamp}-${index}`} className="border-b border-slate-900">
+                    <td className="py-2 pr-3 text-xs text-slate-500">{new Date(trade.timestamp * 1000).toLocaleTimeString()}</td>
+                    <td className="py-2 pr-3">{trade.type}</td>
+                    <td className="py-2 pr-3">{trade.symbol ?? "—"}</td>
+                    <td className="py-2 pr-3">{trade.side ?? "—"}</td>
+                    <td className={`py-2 text-right ${Number(trade.pnl ?? 0) >= 0 ? "text-emerald-300" : "text-rose-300"}`}>
+                      {trade.pnl !== undefined ? `${Number(trade.pnl) >= 0 ? "+" : ""}$${Number(trade.pnl).toFixed(2)}` : "—"}
                     </td>
                   </tr>
                 ))}

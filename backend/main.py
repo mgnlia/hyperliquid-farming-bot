@@ -1,18 +1,18 @@
-"""FastAPI service exposing bot status, metrics, and controls."""
+"""FastAPI service exposing farming bot status, metrics, and controls."""
 
 from __future__ import annotations
 
 import asyncio
 import json
+from collections.abc import AsyncGenerator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
-from backend.agent import agent
+from .agent import agent
 
 app = FastAPI(title="Hyperliquid Farming Bot API", version="0.1.0")
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -67,21 +67,14 @@ async def stop_agent() -> dict:
     return await agent.stop()
 
 
-@app.post("/api/risk/reset")
-def reset_risk() -> dict:
-    # compatibility endpoint for alternate dashboard clients
-    return {"status": "not_applicable_in_simulation_mode"}
-
-
-async def event_generator():
+async def event_generator() -> AsyncGenerator[str, None]:
     last_index = 0
     while True:
         events = agent.state.events
         if last_index < len(events):
             for event in events[last_index:]:
-                yield f"data: {json.dumps(event)}\n\n"
+                yield f"data: {json.dumps(event)}\\n\\n"
             last_index = len(events)
-
         await asyncio.sleep(1)
 
 

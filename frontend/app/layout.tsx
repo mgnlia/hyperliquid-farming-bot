@@ -5,7 +5,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Hyperliquid Farming Bot",
-  description: "SIMULATION_MODE dashboard for Hyperliquid HyperEVM airdrop farming",
+  description: "Simulation dashboard for Hyperliquid HyperEVM airdrop farming",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

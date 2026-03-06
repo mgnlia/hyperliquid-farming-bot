@@ -1,5 +1,3 @@
-"use client";
-
 import type { PointsProtocol } from "@/lib/api";
 
 interface Props {
@@ -22,20 +20,27 @@ export function PointsPanel({ total, score, protocols }: Props) {
         </div>
       </div>
 
+      <div className="mb-4 h-3 w-full overflow-hidden rounded-full bg-slate-800">
+        <div
+          className="h-full rounded-full bg-gradient-to-r from-fuchsia-500 via-purple-400 to-cyan-400"
+          style={{ width: `${Math.min(100, score)}%` }}
+        />
+      </div>
+
       <div className="space-y-2">
-        {protocols.map((p) => {
-          const width = total > 0 ? (p.points / total) * 100 : 0;
+        {protocols.map((protocol) => {
+          const width = total > 0 ? (protocol.points / total) * 100 : 0;
           return (
-            <div key={p.protocol}>
+            <div key={protocol.protocol}>
               <div className="mb-1 flex justify-between text-xs text-slate-300">
                 <span>
-                  {p.protocol} · x{p.multiplier.toFixed(2)}
+                  {protocol.protocol} · x{protocol.multiplier.toFixed(2)}
                 </span>
-                <span>{p.points.toFixed(2)} pts</span>
+                <span>{protocol.points.toFixed(2)} pts</span>
               </div>
               <div className="h-2 w-full overflow-hidden rounded-full bg-slate-800">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-fuchsia-500 via-purple-400 to-cyan-400"
+                  className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-blue-500"
                   style={{ width: `${Math.min(100, width)}%` }}
                 />
               </div>

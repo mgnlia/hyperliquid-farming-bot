@@ -1,4 +1,4 @@
-"""Simulated DeFi farming actions on HyperEVM protocols."""
+"""Simulated HyperEVM DeFi farming actions."""
 
 from __future__ import annotations
 
@@ -28,11 +28,9 @@ class DefiFarmingStrategy:
     def accrue_yield(self, seconds: float) -> float:
         total = 0.0
         for position in self.positions:
-            # APY-based yield approximation per timestep with noise
             per_second_rate = position.apy / (365 * 24 * 3600)
             base_yield = position.deposited * per_second_rate * seconds
-            noise = random.uniform(0.95, 1.05)
-            delta = base_yield * noise
+            delta = base_yield * random.uniform(0.95, 1.05)
             position.earned += delta
             total += delta
         return total
@@ -41,21 +39,21 @@ class DefiFarmingStrategy:
         if random.random() < 0.7:
             return None
 
-        pos = random.choice(self.positions)
+        position = random.choice(self.positions)
         shift = random.uniform(-0.08, 0.12)
-        amount = max(10.0, pos.deposited * abs(shift))
+        amount = max(10.0, position.deposited * abs(shift))
 
         if shift > 0:
-            pos.deposited += amount
+            position.deposited += amount
             action = "deposit"
         else:
-            pos.deposited = max(200.0, pos.deposited - amount)
+            position.deposited = max(200.0, position.deposited - amount)
             action = "withdraw"
 
         return {
             "type": "defi_rebalance",
-            "protocol": pos.protocol,
-            "pool": pos.pool,
+            "protocol": position.protocol,
+            "pool": position.pool,
             "action": action,
             "amount": round(amount, 4),
             "timestamp": time.time(),
@@ -64,18 +62,15 @@ class DefiFarmingStrategy:
     def total_earned(self) -> float:
         return sum(position.earned for position in self.positions)
 
-    def total_deposited(self) -> float:
-        return sum(position.deposited for position in self.positions)
-
     def positions_payload(self) -> list[dict]:
         return [
             {
-                "protocol": p.protocol,
-                "pool": p.pool,
-                "deposited": round(p.deposited, 4),
-                "apy": round(p.apy, 4),
-                "earned": round(p.earned, 4),
-                "started_at": p.started_at,
+                "protocol": position.protocol,
+                "pool": position.pool,
+                "deposited": round(position.deposited, 4),
+                "apy": round(position.apy, 4),
+                "earned": round(position.earned, 4),
+                "started_at": position.started_at,
             }
-            for p in self.positions
+            for position in self.positions
         ]

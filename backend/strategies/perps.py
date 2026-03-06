@@ -27,7 +27,7 @@ class PerpPosition:
 class PerpsStrategy:
     def __init__(self):
         self.positions: list[PerpPosition] = []
-        self.realized_pnl: float = 0.0
+        self.realized_pnl = 0.0
         self._price_state = {"BTC": 72000.0, "ETH": 3600.0, "SOL": 180.0, "HYPE": 35.0}
 
     def _price(self, symbol: str) -> float:
@@ -44,8 +44,6 @@ class PerpsStrategy:
         symbol = random.choice(SYMBOLS)
         side = random.choice(["long", "short"])
         price = self._price(symbol)
-
-        # randomize size with mild preference for smaller risk
         notional = max_notional * random.uniform(0.3, 1.0)
         size = max(0.0001, notional / price)
 
@@ -72,15 +70,13 @@ class PerpsStrategy:
         if not self.positions or random.random() < 0.55:
             return None
 
-        idx = random.randrange(len(self.positions))
-        pos = self.positions[idx]
-        exit_price = self._price(pos.symbol)
-        pos.current_price = exit_price
-
-        pnl = pos.unrealized_pnl
+        index = random.randrange(len(self.positions))
+        position = self.positions[index]
+        exit_price = self._price(position.symbol)
+        position.current_price = exit_price
+        pnl = position.unrealized_pnl
         self.realized_pnl += pnl
-
-        closed = self.positions.pop(idx)
+        closed = self.positions.pop(index)
 
         return {
             "type": "perp_close",
@@ -94,22 +90,22 @@ class PerpsStrategy:
         }
 
     def mark_to_market(self) -> None:
-        for pos in self.positions:
-            pos.current_price = self._price(pos.symbol)
+        for position in self.positions:
+            position.current_price = self._price(position.symbol)
 
     def unrealized_pnl(self) -> float:
-        return sum(pos.unrealized_pnl for pos in self.positions)
+        return sum(position.unrealized_pnl for position in self.positions)
 
     def positions_payload(self) -> list[dict]:
         return [
             {
-                "symbol": p.symbol,
-                "side": p.side,
-                "size": round(p.size, 6),
-                "entry_price": round(p.entry_price, 4),
-                "current_price": round(p.current_price, 4),
-                "unrealized_pnl": round(p.unrealized_pnl, 4),
-                "opened_at": p.opened_at,
+                "symbol": position.symbol,
+                "side": position.side,
+                "size": round(position.size, 6),
+                "entry_price": round(position.entry_price, 4),
+                "current_price": round(position.current_price, 4),
+                "unrealized_pnl": round(position.unrealized_pnl, 4),
+                "opened_at": position.opened_at,
             }
-            for p in self.positions
+            for position in self.positions
         ]

@@ -2,19 +2,13 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install uv
-RUN pip install --no-cache-dir uv
+RUN pip install uv
 
-# Copy backend source (the entire backend/ directory is the build context)
-COPY . /app/backend/
-COPY pyproject.toml* /app/ 2>/dev/null || true
+COPY backend/pyproject.toml ./pyproject.toml
+RUN uv pip install --system --no-cache fastapi uvicorn httpx sse-starlette pydantic pydantic-settings
 
-# Install dependencies
-RUN uv pip install --system fastapi uvicorn httpx sse-starlette pydantic pydantic-settings
+COPY backend/ .
 
 EXPOSE 8000
 
-ENV SIMULATION_MODE=true
-
-# Module path: backend.main:app because we run from /app
-CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -1,1 +1,1 @@
-"""Strategy package for simulated farming bot."""
+"""Strategy package for the Hyperliquid farming simulator."""

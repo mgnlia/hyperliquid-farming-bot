@@ -1,56 +1,45 @@
 # Hyperliquid HyperEVM Airdrop Farming Bot
 
-Automated **simulated** Hyperliquid Season 3 farming bot with:
+Simulation-first farming bot for Hyperliquid Season 3 ($HYPE).
 
-- FastAPI backend (`backend/`)
-- Next.js 14 + Tailwind frontend (`frontend/`)
-- Server-Sent Events feed for live dashboard updates
+## Stack
+- FastAPI backend in `backend/`
+- Next.js 14 + Tailwind frontend in `frontend/`
+- Server-Sent Events dashboard feed
 
-> Default mode is `SIMULATION_MODE=true` so no wallet or API keys are required.
+`SIMULATION_MODE=true` by default, so no wallet or API keys are required.
 
-## Monorepo layout
+## Features
+- Simulated Hyperliquid perps trading
+- Simulated HyperEVM DeFi farming across KittenSwap, HypurrFi, and HyperLend
+- Cross-protocol point farming across Felix, Mizu, Drip, and Hyperbeat
+- Live dashboard with positions, points, P&L trend, score meter, trade log, and event feed
 
-```text
-backend/
-  config.py
-  agent.py
-  main.py
-  strategies/
-frontend/
-  app/
-  components/
-  lib/
-.github/workflows/ci.yml
-```
-
-## Quickstart
+## Run locally
 
 ### Backend
+From the repo root:
 
 ```bash
-cd backend
-uv run uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
+uv run uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 ### Frontend
-
 ```bash
 cd frontend
 npm install
 NEXT_PUBLIC_API_URL=http://localhost:8000 npm run dev
 ```
 
-## API Endpoints
-
+## API
 - `GET /health`
 - `GET /api/status`
 - `GET /api/positions`
 - `GET /api/points`
 - `GET /api/trades`
-- `GET /api/stream` (SSE)
+- `GET /api/stream`
 - `POST /api/agent/start`
 - `POST /api/agent/stop`
 
-## Disclaimer
-
-This repository is for simulation and educational use only. It does not execute real trades unless adapted with live credentials and production-grade safeguards.
+## Notes
+This repository is simulation-only and intended for educational/testing workflows.

@@ -36,13 +36,13 @@ export default function HomePage() {
       setDefi(positionsData.defi);
       setPoints(pointsData);
       setTrades(tradesData.trades);
-      setPnlHistory((prev) => {
-        const next = [...prev, statusData.realized_pnl + statusData.unrealized_pnl + statusData.defi_earned];
+      setPnlHistory((previous) => {
+        const next = [...previous, statusData.realized_pnl + statusData.unrealized_pnl + statusData.defi_earned];
         return next.slice(-100);
       });
       setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
+    } catch (refreshError) {
+      setError(refreshError instanceof Error ? refreshError.message : "Unknown error");
     } finally {
       setLoading(false);
     }
@@ -62,7 +62,7 @@ export default function HomePage() {
     eventSource.onmessage = (message) => {
       try {
         const parsed = JSON.parse(message.data) as Record<string, unknown>;
-        setEvents((prev) => [...prev.slice(-99), parsed]);
+        setEvents((previous) => [...previous.slice(-99), parsed]);
       } catch {
         // ignore malformed event payloads
       }
@@ -77,7 +77,7 @@ export default function HomePage() {
     };
   }, []);
 
-  const pnlValue = useMemo(() => {
+  const totalPnl = useMemo(() => {
     if (!status) {
       return 0;
     }
@@ -123,9 +123,9 @@ export default function HomePage() {
         <StatusCard title="Portfolio Value" value={`$${(status?.portfolio_value ?? 0).toFixed(2)}`} note="Simulated equity" tone="blue" />
         <StatusCard
           title="Total P&L"
-          value={`${pnlValue >= 0 ? "+" : ""}$${pnlValue.toFixed(2)}`}
+          value={`${totalPnl >= 0 ? "+" : ""}$${totalPnl.toFixed(2)}`}
           note="Realized + unrealized + yield"
-          tone={pnlValue >= 0 ? "green" : "red"}
+          tone={totalPnl >= 0 ? "green" : "red"}
         />
         <StatusCard
           title="Airdrop Score"

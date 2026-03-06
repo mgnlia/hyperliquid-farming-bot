@@ -1,5 +1,3 @@
-"use client";
-
 interface StatusCardProps {
   title: string;
   value: string;
@@ -9,9 +7,9 @@ interface StatusCardProps {
 
 const toneStyles: Record<NonNullable<StatusCardProps["tone"]>, string> = {
   blue: "border-blue-500 text-blue-300",
-  green: "border-green-500 text-green-300",
+  green: "border-emerald-500 text-emerald-300",
   yellow: "border-yellow-500 text-yellow-300",
-  red: "border-red-500 text-red-300",
+  red: "border-rose-500 text-rose-300",
 };
 
 export function StatusCard({ title, value, note, tone = "blue" }: StatusCardProps) {

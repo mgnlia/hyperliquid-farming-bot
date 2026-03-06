@@ -1,4 +1,4 @@
-"""Cross-protocol points simulation for airdrop farming."""
+"""Cross-protocol points farming simulation."""
 
 from __future__ import annotations
 
@@ -34,14 +34,10 @@ class PointFarmerStrategy:
             if random.random() < 0.35:
                 continue
 
-            base = random.uniform(4, 18)
-            bonus = random.uniform(0.9, 1.25)
-            earned = base * state.multiplier * bonus
-
+            earned = random.uniform(4, 18) * state.multiplier * random.uniform(0.9, 1.25)
             state.points += earned
             state.actions_count += 1
             state.last_action = now
-
             events.append(
                 {
                     "type": "points_farmed",
@@ -55,22 +51,21 @@ class PointFarmerStrategy:
         return events
 
     def total_points(self) -> float:
-        return sum(s.points for s in self.protocols.values())
+        return sum(state.points for state in self.protocols.values())
 
     def airdrop_score(self) -> float:
-        # Heuristic 0-100 score based on total points and coverage
-        coverage = sum(1 for s in self.protocols.values() if s.actions_count > 0) / len(self.protocols)
+        coverage = sum(1 for state in self.protocols.values() if state.actions_count > 0) / len(self.protocols)
         raw = (self.total_points() / 1500) * 70 + coverage * 30
         return max(0.0, min(100.0, raw))
 
     def payload(self) -> list[dict]:
         return [
             {
-                "protocol": p.protocol,
-                "points": round(p.points, 4),
-                "multiplier": p.multiplier,
-                "actions_count": p.actions_count,
-                "last_action": p.last_action,
+                "protocol": state.protocol,
+                "points": round(state.points, 4),
+                "multiplier": state.multiplier,
+                "actions_count": state.actions_count,
+                "last_action": state.last_action,
             }
-            for p in self.protocols.values()
+            for state in self.protocols.values()
         ]

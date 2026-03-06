@@ -1,5 +1,3 @@
-"use client";
-
 interface Props {
   events: Array<Record<string, unknown>>;
 }
@@ -15,9 +13,9 @@ export function EventFeed({ events }: Props) {
           events
             .slice()
             .reverse()
-            .map((event, idx) => (
+            .map((event, index) => (
               <pre
-                key={`${String(event.type ?? "event")}-${idx}`}
+                key={`${String(event.type ?? "event")}-${index}`}
                 className="overflow-x-auto rounded-lg border border-slate-800 bg-slate-900/60 p-2 text-xs text-slate-300"
               >
                 {JSON.stringify(event, null, 2)}

@@ -1,1 +1,1 @@
-"""Backend package for Hyperliquid farming bot."""
+"""Hyperliquid farming bot backend package."""

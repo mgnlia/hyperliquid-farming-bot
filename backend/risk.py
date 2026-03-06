@@ -1,4 +1,4 @@
-"""Risk manager utilities for simulated agent."""
+"""Risk manager utilities for the simulated farming agent."""
 
 
 class RiskManager:
@@ -8,7 +8,6 @@ class RiskManager:
         self.max_position_pct = max_position_pct
         self.max_drawdown_pct = max_drawdown_pct
         self.kelly_fraction = kelly_fraction
-
         self.peak_value = 0.0
         self.current_drawdown = 0.0
 
@@ -20,13 +19,6 @@ class RiskManager:
         else:
             self.current_drawdown = max(0.0, (self.peak_value - portfolio_value) / self.peak_value)
         return self.current_drawdown <= self.max_drawdown_pct
-
-    def kelly_size(self, win_prob: float, win_loss_ratio: float) -> float:
-        if win_loss_ratio <= 0:
-            return 0.0
-        raw = win_prob - (1 - win_prob) / win_loss_ratio
-        scaled = max(0.0, raw * self.kelly_fraction)
-        return min(self.max_position_pct, scaled)
 
     def metrics(self) -> dict:
         return {
