@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import asyncio
 import json
+import time
 from collections.abc import AsyncGenerator
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
@@ -68,24 +69,25 @@ async def stop_agent() -> dict:
     return await agent.stop()
 
 
-async def event_generator() -> AsyncGenerator[str, None]:
+async def event_generator(request: Request) -> AsyncGenerator[str, None]:
     last_index = 0
-    while True:
+    yield "retry: 3000\n\n"
+
+    while not await request.is_disconnected():
         events = agent.state.events
         if last_index < len(events):
             for event in events[last_index:]:
                 yield f"data: {json.dumps(event)}\n\n"
             last_index = len(events)
         else:
-            heartbeat = json.dumps({"type": "heartbeat", "timestamp": asyncio.get_event_loop().time()})
-            yield f"data: {heartbeat}\n\n"
+            yield f": heartbeat {time.time()}\n\n"
         await asyncio.sleep(settings.SSE_HEARTBEAT_SECONDS)
 
 
 @app.get("/api/stream")
-async def stream() -> StreamingResponse:
+async def stream(request: Request) -> StreamingResponse:
     return StreamingResponse(
-        event_generator(),
+        event_generator(request),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
     )

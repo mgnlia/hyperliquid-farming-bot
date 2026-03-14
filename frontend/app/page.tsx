@@ -17,8 +17,6 @@ import {
   type TradesResponse,
 } from "@/lib/api";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-
 export default function HomePage() {
   const [status, setStatus] = useState<BotStatus | null>(null);
   const [perps, setPerps] = useState<PerpPosition[]>([]);
@@ -64,25 +62,61 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    const eventSource = new EventSource(`${API_BASE}/api/stream`);
+    let eventSource: EventSource | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let closed = false;
 
-    eventSource.onmessage = (message) => {
-      try {
-        const parsed = JSON.parse(message.data) as Record<string, unknown>;
-        setEvents((previous) => [...previous.slice(-99), parsed]);
-      } catch {
-        // ignore malformed event payloads
-      }
+    const connect = () => {
+      eventSource = new EventSource(api.streamUrl());
+
+      eventSource.onmessage = (message) => {
+        try {
+          const parsed = JSON.parse(message.data) as Record<string, unknown>;
+          setEvents((previous) => [...previous.slice(-99), parsed]);
+        } catch {
+          // ignore malformed event payloads
+        }
+      };
+
+      eventSource.onerror = () => {
+        eventSource?.close();
+        if (!closed && reconnectTimer === null) {
+          reconnectTimer = setTimeout(() => {
+            reconnectTimer = null;
+            connect();
+          }, 3000);
+        }
+      };
     };
 
-    eventSource.onerror = () => {
-      eventSource.close();
-    };
+    connect();
 
     return () => {
-      eventSource.close();
+      closed = true;
+      eventSource?.close();
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+      }
     };
   }, []);
+
+  const handleStart = async () => {
+    try {
+      await api.start();
+      await refresh();
+    } catch (actionError) {
+      setError(actionError instanceof Error ? actionError.message : "Failed to start agent");
+    }
+  };
+
+  const handleStop = async () => {
+    try {
+      await api.stop();
+      await refresh();
+    } catch (actionError) {
+      setError(actionError instanceof Error ? actionError.message : "Failed to stop agent");
+    }
+  };
 
   const totalPnl = useMemo(() => {
     if (!status) {
@@ -102,13 +136,13 @@ export default function HomePage() {
         </div>
         <div className="flex gap-2">
           <button
-            onClick={() => void api.start().then(refresh)}
+            onClick={() => void handleStart()}
             className="rounded-lg border border-emerald-700 bg-emerald-900/40 px-4 py-2 text-sm text-emerald-200 hover:bg-emerald-800/40"
           >
             Start Agent
           </button>
           <button
-            onClick={() => void api.stop().then(refresh)}
+            onClick={() => void handleStop()}
             className="rounded-lg border border-rose-700 bg-rose-900/40 px-4 py-2 text-sm text-rose-200 hover:bg-rose-800/40"
           >
             Stop Agent

@@ -22,25 +22,13 @@
   },
   "include": [
     "next-env.d.ts",
-    "app/layout.tsx",
-    "app/page.tsx",
-    "components/EventFeed.tsx",
-    "components/PnlChart.tsx",
-    "components/PointsPanel.tsx",
-    "components/PositionsTable.tsx",
-    "components/StatusCard.tsx",
-    "components/TradeTable.tsx",
-    "lib/api.ts",
+    "app/**/*.ts",
+    "app/**/*.tsx",
+    "components/**/*.ts",
+    "components/**/*.tsx",
+    "lib/**/*.ts",
+    "lib/**/*.tsx",
     ".next/types/**/*.ts"
   ],
-  "exclude": [
-    "node_modules",
-    "src",
-    "components/AirdropScore.tsx",
-    "components/BotControls.tsx",
-    "components/PnLChart.tsx",
-    "components/StatCard.tsx",
-    "components/TradeHistory.tsx",
-    "lib/hooks.ts"
-  ]
+  "exclude": ["node_modules"]
 }
