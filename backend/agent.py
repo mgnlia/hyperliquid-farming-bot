@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import random
 import time
 from dataclasses import dataclass, field
 
@@ -38,17 +37,14 @@ class HyperliquidFarmingAgent:
 
     def _emit(self, event: dict) -> None:
         self.state.events.append(event)
-        self.state.events = self.state.events[-300:]
+        self.state.events = self.state.events[-settings.MAX_EVENTS :]
 
     def _record_trade(self, trade: dict) -> None:
         self.state.trades.append(trade)
-        self.state.trades = self.state.trades[-300:]
+        self.state.trades = self.state.trades[-settings.MAX_TRADES :]
 
     def _portfolio_value(self) -> float:
         return self.cash + self.perps.unrealized_pnl() + self.defi.total_earned()
-
-    def _max_position_notional(self) -> float:
-        return max(1.0, self._portfolio_value()) * settings.MAX_POSITION_PCT
 
     async def _tick(self) -> None:
         previous_tick = self.state.last_tick or time.time()
@@ -59,8 +55,9 @@ class HyperliquidFarmingAgent:
         self.perps.mark_to_market()
         yield_delta = self.defi.accrue_yield(seconds_elapsed)
 
-        if random.random() < 0.55:
-            open_trade = self.perps.maybe_open_position(self._max_position_notional())
+        max_notional = self.risk.max_position_notional(self._portfolio_value())
+        if self.perps.open_notional() < max_notional and now % 1 < 0.6:
+            open_trade = self.perps.maybe_open_position(max_notional - self.perps.open_notional())
             if open_trade:
                 self._record_trade(open_trade)
                 self._emit(open_trade)
@@ -85,6 +82,7 @@ class HyperliquidFarmingAgent:
                 "type": "status",
                 "timestamp": now,
                 "portfolio_value": round(portfolio_value, 4),
+                "cash": round(self.cash, 4),
                 "realized_pnl": round(self.perps.realized_pnl, 4),
                 "unrealized_pnl": round(self.perps.unrealized_pnl(), 4),
                 "defi_earned": round(self.defi.total_earned(), 4),
@@ -112,7 +110,13 @@ class HyperliquidFarmingAgent:
         self.state.started_at = time.time()
         self.state.last_tick = self.state.started_at
         self._stop_event.clear()
-        self._emit({"type": "agent_started", "timestamp": self.state.started_at, "simulation_mode": self.simulation_mode})
+        self._emit(
+            {
+                "type": "agent_started",
+                "timestamp": self.state.started_at,
+                "simulation_mode": self.simulation_mode,
+            }
+        )
 
         while not self._stop_event.is_set():
             await self._tick()

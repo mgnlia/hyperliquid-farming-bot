@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
 from .agent import agent
+from .config import settings
 
 app = FastAPI(title="Hyperliquid Farming Bot API", version="0.1.0")
 app.add_middleware(
@@ -34,7 +35,7 @@ async def shutdown_event() -> None:
 
 @app.get("/health")
 def health() -> dict:
-    return {"status": "ok", "service": "hyperliquid-farming-bot"}
+    return {"status": "ok", "service": "hyperliquid-farming-bot", "simulation_mode": settings.SIMULATION_MODE}
 
 
 @app.get("/api/status")
@@ -75,9 +76,16 @@ async def event_generator() -> AsyncGenerator[str, None]:
             for event in events[last_index:]:
                 yield f"data: {json.dumps(event)}\n\n"
             last_index = len(events)
-        await asyncio.sleep(1)
+        else:
+            heartbeat = json.dumps({"type": "heartbeat", "timestamp": asyncio.get_event_loop().time()})
+            yield f"data: {heartbeat}\n\n"
+        await asyncio.sleep(settings.SSE_HEARTBEAT_SECONDS)
 
 
 @app.get("/api/stream")
 async def stream() -> StreamingResponse:
-    return StreamingResponse(event_generator(), media_type="text/event-stream")
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
+    )
