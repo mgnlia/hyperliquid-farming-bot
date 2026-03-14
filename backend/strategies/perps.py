@@ -33,9 +33,9 @@ class PerpsStrategy:
     def _price(self, symbol: str) -> float:
         base = self._price_state[symbol]
         drift = random.uniform(-0.02, 0.02)
-        nxt = max(0.01, base * (1 + drift))
-        self._price_state[symbol] = nxt
-        return nxt
+        next_price = max(0.01, base * (1 + drift))
+        self._price_state[symbol] = next_price
+        return next_price
 
     def maybe_open_position(self, max_notional: float) -> dict | None:
         if len(self.positions) >= 6:

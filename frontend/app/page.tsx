@@ -8,7 +8,14 @@ import { PointsPanel } from "@/components/PointsPanel";
 import { PositionsTable } from "@/components/PositionsTable";
 import { StatusCard } from "@/components/StatusCard";
 import { TradeTable } from "@/components/TradeTable";
-import { api, type BotStatus, type DefiPosition, type PerpPosition, type PointsResponse, type TradesResponse } from "@/lib/api";
+import {
+  api,
+  type BotStatus,
+  type DefiPosition,
+  type PerpPosition,
+  type PointsResponse,
+  type TradesResponse,
+} from "@/lib/api";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -120,7 +127,12 @@ export default function HomePage() {
           note="running | stopped | halted"
           tone={status?.status === "running" ? "green" : status?.status === "halted" ? "red" : "blue"}
         />
-        <StatusCard title="Portfolio Value" value={`$${(status?.portfolio_value ?? 0).toFixed(2)}`} note="Simulated equity" tone="blue" />
+        <StatusCard
+          title="Portfolio Value"
+          value={`$${(status?.portfolio_value ?? 0).toFixed(2)}`}
+          note="Simulated equity"
+          tone="blue"
+        />
         <StatusCard
           title="Total P&L"
           value={`${totalPnl >= 0 ? "+" : ""}$${totalPnl.toFixed(2)}`}

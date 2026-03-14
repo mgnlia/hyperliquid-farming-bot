@@ -1,21 +1,21 @@
 # Hyperliquid HyperEVM Airdrop Farming Bot
 
-Simulation-first farming bot for Hyperliquid Season 3 ($HYPE).
-
-## Stack
-- FastAPI backend in `backend/`
-- Next.js 14 + Tailwind frontend in `frontend/`
-- Server-Sent Events dashboard feed
-
-`SIMULATION_MODE=true` by default, so no wallet or API keys are required.
+Simulation-first Hyperliquid Season 3 farming bot with a FastAPI backend and Next.js 14 dashboard.
 
 ## Features
-- Simulated Hyperliquid perps trading
-- Simulated HyperEVM DeFi farming across KittenSwap, HypurrFi, and HyperLend
-- Cross-protocol point farming across Felix, Mizu, Drip, and Hyperbeat
-- Live dashboard with positions, points, P&L trend, score meter, trade log, and event feed
+- `SIMULATION_MODE=true` by default
+- Simulated perps farming across BTC, ETH, SOL, and HYPE
+- Simulated HyperEVM DeFi allocation management for KittenSwap, HypurrFi, and HyperLend
+- Simulated cross-protocol point farming for Felix, Mizu, Drip, and Hyperbeat
+- Server-Sent Events feed for live agent activity
+- Dashboard with positions, point tracker, score meter, P&L chart, and trade log
 
-## Run locally
+## Project structure
+- `backend/` – FastAPI app and farming agent
+- `frontend/` – Next.js 14 dashboard
+- `.github/workflows/ci.yml` – backend Ruff + frontend build CI
+
+## Local development
 
 ### Backend
 From the repo root:
@@ -41,5 +41,5 @@ NEXT_PUBLIC_API_URL=http://localhost:8000 npm run dev
 - `POST /api/agent/start`
 - `POST /api/agent/stop`
 
-## Notes
-This repository is simulation-only and intended for educational/testing workflows.
+## Safety
+This repository is simulation-only by default and does not require private keys or wallet credentials.
