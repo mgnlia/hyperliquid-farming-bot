@@ -8,7 +8,7 @@ Simulation-first Hyperliquid Season 3 farming bot with a FastAPI backend and Nex
 - Simulated HyperEVM DeFi allocation management for KittenSwap, HypurrFi, and HyperLend
 - Simulated cross-protocol point farming for Felix, Mizu, Drip, and Hyperbeat
 - Server-Sent Events feed for live agent activity
-- Dashboard with positions, point tracker, score meter, P&L chart, and trade log
+- Dashboard with positions table, points tracker, P&L chart, airdrop score meter, and event feed
 
 ## Project structure
 - `backend/` – FastAPI app and farming agent

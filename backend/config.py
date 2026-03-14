@@ -10,13 +10,15 @@ class Settings(BaseSettings):
     HOST: str = "0.0.0.0"
     PORT: int = 8000
 
-    AGENT_LOOP_INTERVAL: float = 5.0
-
+    AGENT_LOOP_INTERVAL: float = 3.0
     MAX_POSITION_PCT: float = 0.25
-    MAX_DRAWDOWN_PCT: float = 0.15
-    KELLY_FRACTION: float = 0.5
-
+    MAX_DRAWDOWN_PCT: float = 0.18
+    KELLY_FRACTION: float = 0.45
     INITIAL_PORTFOLIO_VALUE: float = 10000.0
+
+    SSE_HEARTBEAT_SECONDS: float = 1.0
+    MAX_EVENTS: int = 300
+    MAX_TRADES: int = 300
 
 
 settings = Settings()

@@ -1,1 +1,1 @@
-"""Strategy package for the Hyperliquid farming simulator."""
+"""Strategy implementations for simulated farming actions."""
