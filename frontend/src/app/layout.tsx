@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import type { ReactNode } from 'react'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -6,10 +7,10 @@ export const metadata: Metadata = {
   description: 'HyperEVM Airdrop Farming Dashboard — $HYPE Season 3',
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-hype-dark">{children}</body>
+      <body className="min-h-screen bg-slate-950 text-slate-100">{children}</body>
     </html>
   )
 }
