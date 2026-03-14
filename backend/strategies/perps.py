@@ -23,6 +23,10 @@ class PerpPosition:
         direction = 1 if self.side == "long" else -1
         return (self.current_price - self.entry_price) * self.size * direction
 
+    @property
+    def notional(self) -> float:
+        return self.current_price * self.size
+
 
 class PerpsStrategy:
     def __init__(self):
@@ -44,7 +48,7 @@ class PerpsStrategy:
         symbol = random.choice(SYMBOLS)
         side = random.choice(["long", "short"])
         price = self._price(symbol)
-        notional = max_notional * random.uniform(0.3, 1.0)
+        notional = max_notional * random.uniform(0.25, 0.8)
         size = max(0.0001, notional / price)
 
         position = PerpPosition(
@@ -62,6 +66,7 @@ class PerpsStrategy:
             "symbol": symbol,
             "side": side,
             "size": round(size, 6),
+            "notional": round(notional, 4),
             "price": round(price, 4),
             "timestamp": time.time(),
         }
@@ -96,6 +101,9 @@ class PerpsStrategy:
     def unrealized_pnl(self) -> float:
         return sum(position.unrealized_pnl for position in self.positions)
 
+    def open_notional(self) -> float:
+        return sum(position.notional for position in self.positions)
+
     def positions_payload(self) -> list[dict]:
         return [
             {
@@ -105,6 +113,7 @@ class PerpsStrategy:
                 "entry_price": round(position.entry_price, 4),
                 "current_price": round(position.current_price, 4),
                 "unrealized_pnl": round(position.unrealized_pnl, 4),
+                "notional": round(position.notional, 4),
                 "opened_at": position.opened_at,
             }
             for position in self.positions

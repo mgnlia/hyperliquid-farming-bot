@@ -62,6 +62,9 @@ class DefiFarmingStrategy:
     def total_earned(self) -> float:
         return sum(position.earned for position in self.positions)
 
+    def total_deposited(self) -> float:
+        return sum(position.deposited for position in self.positions)
+
     def positions_payload(self) -> list[dict]:
         return [
             {
