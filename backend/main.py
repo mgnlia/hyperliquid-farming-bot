@@ -73,7 +73,7 @@ async def event_generator() -> AsyncGenerator[str, None]:
         events = agent.state.events
         if last_index < len(events):
             for event in events[last_index:]:
-                yield f"data: {json.dumps(event)}\\n\\n"
+                yield f"data: {json.dumps(event)}\n\n"
             last_index = len(events)
         await asyncio.sleep(1)
 
